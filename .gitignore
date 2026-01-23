@@ -1,0 +1,6 @@
+/.claude
+/dist
+/build
+__pycache__/
+*.so
+*.pyd

@@ -1,0 +1,10 @@
+API Reference
+=============
+
+zagar
+-----
+
+.. automodule:: zagar
+   :members:
+   :undoc-members:
+   :show-inheritance:
