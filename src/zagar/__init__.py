@@ -50,7 +50,7 @@ from ._core import (
     has_openmp,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.0"
 __all__ = [
     "count_binary_matrices",
     "getA12",

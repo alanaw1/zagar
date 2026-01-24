@@ -244,100 +244,16 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="api-reference-python">
-<h1>API Reference (Python)<a class="headerlink" href="#api-reference-python" title="Link to this heading">¶</a></h1>
-<section id="module-zagar">
-<span id="zagar"></span><h2>zagar<a class="headerlink" href="#module-zagar" title="Link to this heading">¶</a></h2>
-<p>Exact and Approximate Enumeration of Admixed Arrays</p>
-<p>This Python package provides efficient C++ implementations for counting
-admixed arrays and binary matrices with specified row and column sums.</p>
-<section id="functions">
-<h3>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h3>
-<dl class="simple">
-<dt>count_binary_matrices(p, q, sort_p_desc=False)</dt><dd><p>Count Binary Matrices with Row Sums <span class="math notranslate nohighlight">\(\boldsymbol{p}\)</span> and Column Sums <span class="math notranslate nohighlight">\(\boldsymbol{q}\)</span></p>
-</dd>
-<dt>getA12(N, a_vec, phi0_vec, phi1_vec, sort_p_desc=True)</dt><dd><p>Cardinality of Doubly Constrained Admixed Arrays</p>
-</dd>
-<dt>getA12_parallel(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True)</dt><dd><p>Cardinality of Doubly Constrained Admixed Arrays (Parallelized)</p>
-</dd>
-<dt>getA1(N, P, a_vec, return_log=False)</dt><dd><p>Cardinality of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span>: Number of Arrays Subject to Row Margin Constraints</p>
-</dd>
-<dt>getA2(N, P, phi0_vec, phi1_vec, return_log=False)</dt><dd><p>Cardinality of <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span>: Number of Arrays Subject to Column Margin Constraints</p>
-</dd>
-<dt>compareA1A2(a_vec, phi0_vec, phi1_vec, use_large_NP=False)</dt><dd><p>Compare Cardinalities of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span> and <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span></p>
-</dd>
-<dt>get_constraints(A, X)</dt><dd><p>Compute Marginal Constraint Vectors from Admixed Array</p>
-</dd>
-<dt>count_matrices(p, q, sort_p_desc=False)</dt><dd><p>Wrapper for <code class="docutils literal notranslate"><span class="pre">count_binary_matrices</span></code></p>
-</dd>
-</dl>
-</section>
-<section id="documentation">
-<h3>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h3>
-</section>
-<dl class="py function">
-<dt class="sig sig-object py" id="zagar.compareA1A2">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">compareA1A2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_large_NP</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#compareA1A2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.compareA1A2" title="Link to this definition">¶</a></dt>
-<dd><p>Compare Cardinalities of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span> and <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span></p>
-<p>This function computes <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span> and <span class="math notranslate nohighlight">\(|\mathscr{A}_2|\)</span> and compares their sizes.
-Optionally, it can also compute an asymptotic approximation for large <span class="math notranslate nohighlight">\(N\)</span>, <span class="math notranslate nohighlight">\(P\)</span>
-based on entropy calculations.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>a_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Row margin constraints (length N)</p></li>
-<li><p><strong>phi0_vec</strong> (<em>list</em><em> of </em><em>int</em>) – First constraint vector (length P)</p></li>
-<li><p><strong>phi1_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Second constraint vector (length P, same length as phi0_vec)</p></li>
-<li><p><strong>use_large_NP</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, compute asymptotic comparison using entropy criterion (default: False)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Dictionary with keys:</dt><dd><ul class="simple">
-<li><p>’log2_A1’: float - log2 of <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span></p></li>
-<li><p>’log2_A2’: float - log2 of <span class="math notranslate nohighlight">\(|\mathscr{A}_2|\)</span></p></li>
-<li><p>’outcome’: str - “A1 is larger” or “A2 is at least as large”</p></li>
-</ul>
-</dd>
-<dt>If use_large_NP=True, also includes:</dt><dd><ul class="simple">
-<li><p>’large_NP_stat’: float - the asymptotic criterion value (LHS - RHS)</p></li>
-<li><p>’large_NP_outcome’: str - “A1 is roughly larger” or “A2 is roughly at least as large”</p></li>
-</ul>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">compareA1A2</span><span class="p">([</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;outcome&#39;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">compareA1A2</span><span class="p">([</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">use_large_NP</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;large_NP_stat&#39;</span><span class="p">])</span>
-</pre></div>
-</div>
-<p class="rubric">Notes</p>
-<dl class="simple">
-<dt>The asymptotic condition for A1 &gt; A2 (when use_large_NP=True) is:</dt><dd><p>H(<code class="docutils literal notranslate"><span class="pre">a_bar</span></code>) &gt; H(<code class="docutils literal notranslate"><span class="pre">f0</span></code>, <code class="docutils literal notranslate"><span class="pre">f1</span></code>, 1-<code class="docutils literal notranslate"><span class="pre">f0</span></code>-<code class="docutils literal notranslate"><span class="pre">f1</span></code>) - (<code class="docutils literal notranslate"><span class="pre">f0</span></code> + <code class="docutils literal notranslate"><span class="pre">f1</span></code>)</p>
-</dd>
-<dt>where:</dt><dd><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">a_bar</span></code> = <code class="docutils literal notranslate"><span class="pre">a_vec</span></code> / (2*P), the normalized row margins</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">f0</span></code> = <code class="docutils literal notranslate"><span class="pre">phi0_vec</span></code> / (2*N), <code class="docutils literal notranslate"><span class="pre">f1</span></code> = <code class="docutils literal notranslate"><span class="pre">phi1_vec</span></code> / (2*N), the normalized column margins</p></li>
-<li><p>H() denotes entropy</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
+          <section id="module-zagar">
+<span id="api-reference-python"></span><h1>API Reference (Python)<a class="headerlink" href="#module-zagar" title="Link to this heading">¶</a></h1>
+<section id="count-binary-matrices">
+<h2>count_binary_matrices<a class="headerlink" href="#count-binary-matrices" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.count_binary_matrices">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">count_binary_matrices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">collections.abc.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">SupportsInt</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">collections.abc.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">SupportsInt</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_p_desc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#zagar.count_binary_matrices" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">count_binary_matrices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_p_desc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#zagar.count_binary_matrices" title="Link to this definition">¶</a></dt>
 <dd><p>Count Binary Matrices with Row Sums <span class="math notranslate nohighlight">\(\boldsymbol{p}\)</span> and Column Sums <span class="math notranslate nohighlight">\(\boldsymbol{q}\)</span>.</p>
 <p>The underlying algorithm is a minor modification of the original EXACT algorithm implemented
-by Miller and Harrison (2013) <em>Annals of Statistics</em>. Compared to their original C version,
+in Miller and Harrison (2013) <em>The Annals of Statistics</em>. Compared to their original C version,
 this version uses modern C++ optimizations (e.g., <code class="docutils literal notranslate"><span class="pre">std::unordered_map</span></code> in C++
 versus <code class="docutils literal notranslate"><span class="pre">khash</span></code> from <code class="docutils literal notranslate"><span class="pre">klib</span></code> for hashing) and performs operations on flexible
 integer types, which may be more efficient when the problem size is not too large
@@ -351,21 +267,19 @@ integer types, which may be more efficient when the problem size is not too larg
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>{‘number’: int, ‘memo_entries’: int}</dt><dd><ul class="simple">
-<li><p>number: The count of binary matrices (arbitrary precision)</p></li>
-<li><p>memo_entries: Number of entries in the memoization table</p></li>
+<dd class="field-even"><p><p><code class="docutils literal notranslate"><span class="pre">{'number':</span> <span class="pre">int,</span> <span class="pre">'memo_entries':</span> <span class="pre">int}</span></code></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">number</span></code>: The count of binary matrices (arbitrary precision)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memo_entries</span></code>: Number of entries in the memoization table</p></li>
 </ul>
-</dd>
-</dl>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">count_binary_matrices</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;number&#39;</span><span class="p">]</span>
 <span class="go">3</span>
@@ -373,6 +287,9 @@ integer types, which may be more efficient when the problem size is not too larg
 </div>
 </dd></dl>
 
+</section>
+<section id="count-matrices">
+<h2>count_matrices<a class="headerlink" href="#count-matrices" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.count_matrices">
 <span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">count_matrices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_p_desc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#count_matrices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.count_matrices" title="Link to this definition">¶</a></dt>
@@ -393,47 +310,17 @@ integer types, which may be more efficient when the problem size is not too larg
 <dd class="field-odd"><p>int</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">count_matrices</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
 <span class="go">3</span>
 </pre></div>
 </div>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="zagar.getA1">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">collections.abc.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">SupportsInt</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_log</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">object</span></span></span><a class="headerlink" href="#zagar.getA1" title="Link to this definition">¶</a></dt>
-<dd><p>Cardinality of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span>: Number of Arrays Subject to Row Margin Constraints</p>
-<p>Formula: prod(C(2*P, a_n)) * 2^(2*N*P) for all a_n in a_vec</p>
-<p>Mathematically,
-<span class="math notranslate nohighlight">\(2^{2NP} \prod_{n=1}^N \binom{2P}{a_{n\cdot}}\)</span> for all <span class="math notranslate nohighlight">\(a_{n\cdot}\)</span> in <span class="math notranslate nohighlight">\(\boldsymbol{a}\)</span></p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>N</strong> (<em>int</em>) – Positive integer (number of rows)</p></li>
-<li><p><strong>P</strong> (<em>int</em>) – Positive integer (number of columns)</p></li>
-<li><p><strong>a_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Row margin constraints (length N, values in [0, 2*P])</p></li>
-<li><p><strong>return_log</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, return log2 of result as float (default: False)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>If return_log=False: The exact <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span> value (arbitrary precision)</p>
-<p>If return_log=True: <span class="math notranslate nohighlight">\(\log_2(|\mathscr{A}_1|)\)</span> as a float</p>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int or float</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA1</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA1</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">return_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
+</section>
+<section id="geta12">
+<h2>getA12<a class="headerlink" href="#geta12" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.getA12">
 <span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA12</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_p_desc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_approx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#getA12"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.getA12" title="Link to this definition">¶</a></dt>
@@ -460,18 +347,11 @@ Currently only works for the following special regular case:</p>
 <li><p><strong>phi1_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Second constraint vector (must have same length as phi0_vec)</p></li>
 <li><p><strong>sort_p_desc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, sort p in decreasing order for speed (default: True)</p></li>
 <li><p><strong>return_approx</strong> (<em>bool</em><em>, </em><em>optional</em>) – <ul>
-<li><dl class="simple">
-<dt>If True and inputs form a “regular case” (all a_vec equal P, all phi0_vec equal N, all phi1_vec equal N),</dt><dd><p>return a dict with: ‘count’ (exact count), ‘is_regular’ (True),
+<li><p>If True and inputs form a “regular case” (all a_vec equal P, all phi0_vec equal N, all phi1_vec equal N),
+return a dict with: ‘count’ (exact count), ‘is_regular’ (True),
 ‘log2_upper_bound’ (upper bound on log2(count)), and ‘log2_approx’
-(approximation valid when N and P are large with bounded ratio).</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>If False or not regular case,</dt><dd><p>return just the count (default: False)</p>
-</dd>
-</dl>
-</li>
+(approximation valid when N and P are large with bounded ratio).</p></li>
+<li><p>If False or not regular case, return just the count (default: False)</p></li>
 </ul>
 </p></li>
 </ul>
@@ -485,8 +365,8 @@ Currently only works for the following special regular case:</p>
 <dd class="field-odd"><p>int or dict</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Basic usage</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA12</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">phi0_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">phi1_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
 <span class="go">7632</span>
@@ -500,6 +380,9 @@ Currently only works for the following special regular case:</p>
 </div>
 </dd></dl>
 
+</section>
+<section id="geta12-parallel">
+<h2>getA12_parallel<a class="headerlink" href="#geta12-parallel" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.getA12_parallel">
 <span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA12_parallel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_p_desc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_approx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#getA12_parallel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.getA12_parallel" title="Link to this definition">¶</a></dt>
@@ -520,14 +403,12 @@ first coordinate of the constrained set <span class="math notranslate nohighligh
 <li><p><strong>sort_p_desc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, sort p in decreasing order for speed (default: True)</p></li>
 <li><p><strong>return_approx</strong> (<em>bool</em><em>, </em><em>optional</em>) – <p>If True and inputs form a “regular case” (all a_vec equal P,
 all phi0_vec equal N, all phi1_vec equal N), return a dict with:</p>
-<blockquote>
-<div><ul>
+<ul>
 <li><p>’count’: exact count</p></li>
 <li><p>’is_regular’: True</p></li>
 <li><p>’log2_upper_bound’: upper bound on log2(count)</p></li>
 <li><p>’log2_approx’: approximation valid when N and P are large with bounded ratio</p></li>
 </ul>
-</div></blockquote>
 <p>If False or not regular case, returns just the count (default: False)</p>
 </p></li>
 </ul>
@@ -541,11 +422,13 @@ all phi0_vec equal N, all phi1_vec equal N), return a dict with:</p>
 <dd class="field-odd"><p>int or dict</p>
 </dd>
 </dl>
-<p class="rubric">Notes</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
 <p>This function uses OpenMP for parallelization when available.
 If OpenMP is not available at compile time, it falls back to serial execution.</p>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+</div>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Basic usage</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA12_parallel</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">phi0_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">phi1_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
 <span class="go">7632</span>
@@ -559,9 +442,48 @@ If OpenMP is not available at compile time, it falls back to serial execution.</
 </div>
 </dd></dl>
 
+</section>
+<section id="geta1">
+<h2>getA1<a class="headerlink" href="#geta1" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="zagar.getA1">
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#zagar.getA1" title="Link to this definition">¶</a></dt>
+<dd><p>Cardinality of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span>: Number of Arrays Subject to Row Margin Constraints</p>
+<p>Formula: prod(C(2*P, a_n)) * 2^(2*N*P) for all a_n in a_vec</p>
+<p>Mathematically,
+<span class="math notranslate nohighlight">\(2^{2NP} \prod_{n=1}^N \binom{2P}{a_{n\cdot}}\)</span> for all <span class="math notranslate nohighlight">\(a_{n\cdot}\)</span> in <span class="math notranslate nohighlight">\(\boldsymbol{a}\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>N</strong> (<em>int</em>) – Positive integer (number of rows)</p></li>
+<li><p><strong>P</strong> (<em>int</em>) – Positive integer (number of columns)</p></li>
+<li><p><strong>a_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Row margin constraints (length N, values in [0, 2*P])</p></li>
+<li><p><strong>return_log</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, return log2 of result as float (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>If return_log=False: The exact <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span> value (arbitrary precision)</p>
+<p>If return_log=True: <span class="math notranslate nohighlight">\(\log_2(|\mathscr{A}_1|)\)</span> as a float</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int or float</p>
+</dd>
+</dl>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA1</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA1</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">a_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">return_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="geta2">
+<h2>getA2<a class="headerlink" href="#geta2" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.getA2">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">collections.abc.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">SupportsInt</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">collections.abc.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">SupportsInt</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_log</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">object</span></span></span><a class="headerlink" href="#zagar.getA2" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">getA2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#zagar.getA2" title="Link to this definition">¶</a></dt>
 <dd><p>Cardinality of <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span>: Number of Arrays Subject to Column Margin Constraints</p>
 <p>Formula: prod(C(2*N, phi0_p+phi1_p) * C(phi0_j+phi1_p, phi1_p) * 2^(2*N-(phi0_p+phi1_p)))</p>
 <p>Mathematically,
@@ -585,17 +507,80 @@ If OpenMP is not available at compile time, it falls back to serial execution.</
 <dd class="field-odd"><p>int or float</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA2</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">phi0_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">phi1_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">getA2</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">P</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">phi0_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">phi1_vec</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">return_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
 
+</section>
+<section id="comparea1a2">
+<h2>compareA1A2<a class="headerlink" href="#comparea1a2" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="zagar.compareA1A2">
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">compareA1A2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi0_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi1_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_large_NP</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#compareA1A2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.compareA1A2" title="Link to this definition">¶</a></dt>
+<dd><p>Compare Cardinalities of <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span> and <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span></p>
+<p>This function computes <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span> and <span class="math notranslate nohighlight">\(|\mathscr{A}_2|\)</span> and compares their sizes.
+Optionally, it can also compute an asymptotic approximation for large <span class="math notranslate nohighlight">\(N\)</span>, <span class="math notranslate nohighlight">\(P\)</span>
+based on entropy calculations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Row margin constraints (length N)</p></li>
+<li><p><strong>phi0_vec</strong> (<em>list</em><em> of </em><em>int</em>) – First constraint vector (length P)</p></li>
+<li><p><strong>phi1_vec</strong> (<em>list</em><em> of </em><em>int</em>) – Second constraint vector (length P, same length as phi0_vec)</p></li>
+<li><p><strong>use_large_NP</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, compute asymptotic comparison using entropy criterion (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dictionary with keys:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'log2_A1'</span></code>: float - log2 of <span class="math notranslate nohighlight">\(|\mathscr{A}_1|\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'log2_A2'</span></code>: float - log2 of <span class="math notranslate nohighlight">\(|\mathscr{A}_2|\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'outcome'</span></code>: str - “A1 is larger” or “A2 is at least as large”</p></li>
+</ul>
+<p>If use_large_NP=True, also includes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'large_NP_stat'</span></code>: float - the asymptotic criterion value (LHS - RHS)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'large_NP_outcome'</span></code>: str - “A1 is roughly larger” or “A2 is roughly at least as large”</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<dl class="simple">
+<dt>The asymptotic condition for A1 &gt; A2 (when use_large_NP=True) is:</dt><dd><p>H(<code class="docutils literal notranslate"><span class="pre">a_bar</span></code>) &gt; H(<code class="docutils literal notranslate"><span class="pre">f0</span></code>, <code class="docutils literal notranslate"><span class="pre">f1</span></code>, 1-<code class="docutils literal notranslate"><span class="pre">f0</span></code>-<code class="docutils literal notranslate"><span class="pre">f1</span></code>) - (<code class="docutils literal notranslate"><span class="pre">f0</span></code> + <code class="docutils literal notranslate"><span class="pre">f1</span></code>)</p>
+</dd>
+<dt>where:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">a_bar</span></code> = <code class="docutils literal notranslate"><span class="pre">a_vec</span></code> / (2*P), the normalized row margins</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">f0</span></code> = <code class="docutils literal notranslate"><span class="pre">phi0_vec</span></code> / (2*N), <code class="docutils literal notranslate"><span class="pre">f1</span></code> = <code class="docutils literal notranslate"><span class="pre">phi1_vec</span></code> / (2*N), the normalized column margins</p></li>
+<li><p>H() denotes entropy</p></li>
+</ul>
+</dd>
+</dl>
+</div>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">compareA1A2</span><span class="p">([</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;outcome&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">compareA1A2</span><span class="p">([</span><span class="mi">25</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">20</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span> <span class="n">use_large_NP</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;large_NP_stat&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="get-constraints">
+<h2>get_constraints<a class="headerlink" href="#get-constraints" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.get_constraints">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">get_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/zagar.html#get_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.get_constraints" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">get_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/zagar.html#get_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#zagar.get_constraints" title="Link to this definition">¶</a></dt>
 <dd><p>Compute Marginal Constraint Vectors from Admixed Array</p>
 <p>Given binary matrices <span class="math notranslate nohighlight">\(\mathbf{A}\)</span> (ancestry) and <span class="math notranslate nohighlight">\(\mathbf{X}\)</span> (allele dosage)
 that make up the admixed array <span class="math notranslate nohighlight">\([\mathbf{A},\mathbf{X}]\)</span>, computes three marginal
@@ -612,25 +597,31 @@ May contain np.nan values for missing data.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p><strong>a_vec</strong> (<em>list of int</em>) – Length N. Entry n is the row sum of A (total ancestry-1 count for
+<dd class="field-even"><p><p>Tuple of three lists:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">a_vec</span></code>: list of int - Length N. Entry n is the row sum of A (total ancestry-1 count for
 individual n). This is the row margin constraint for <span class="math notranslate nohighlight">\(\mathscr{A}_1\)</span>.
 NA values in A are ignored.</p></li>
-<li><p><strong>phi0_vec</strong> (<em>list of int</em>) – Length P. Entry p is the sum of X values at positions where A=0,
+<li><p><code class="docutils literal notranslate"><span class="pre">phi0_vec</span></code>: list of int - Length P. Entry p is the sum of X values at positions where A=0,
 across columns p and P+p for all individuals.
 This is the first column margin constraint for <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span>.</p></li>
-<li><p><strong>phi1_vec</strong> (<em>list of int</em>) – Length P. Entry p is the sum of X values at positions where A=1,
+<li><p><code class="docutils literal notranslate"><span class="pre">phi1_vec</span></code>: list of int - Length P. Entry p is the sum of X values at positions where A=1,
 across columns p and P+p for all individuals.
 This is the second column margin constraint for <span class="math notranslate nohighlight">\(\mathscr{A}_2\)</span>.</p></li>
 </ul>
 </p>
 </dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple of (list, list, list)</p>
+</dd>
 </dl>
-<p class="rubric">Notes</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
 <p>If either A or X contains NA/NaN values, a warning is issued but computation
 continues. NA values are ignored in all sums (they contribute 0 to the totals).</p>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</div>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">N</span><span class="p">,</span> <span class="n">P</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span>
@@ -641,9 +632,8 @@ continues. NA values are ignored in all sums (they contribute 0 to the totals).<
 <span class="go">True</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">phi0_vec</span><span class="p">)</span> <span class="o">==</span> <span class="n">P</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">phi1_vec</span><span class="p">)</span> <span class="o">==</span> <span class="n">P</span>
 <span class="go">True</span>
-</pre></div>
-</div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># With missing data</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># With missing data</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">A</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a_vec</span><span class="p">,</span> <span class="n">phi0_vec</span><span class="p">,</span> <span class="n">phi1_vec</span> <span class="o">=</span> <span class="n">zagar</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>  <span class="c1"># warns but continues</span>
@@ -651,9 +641,12 @@ continues. NA values are ignored in all sums (they contribute 0 to the totals).<
 </div>
 </dd></dl>
 
+</section>
+<section id="has-openmp">
+<h2>has_openmp<a class="headerlink" href="#has-openmp" title="Link to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="zagar.has_openmp">
-<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">has_openmp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#zagar.has_openmp" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">has_openmp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#zagar.has_openmp" title="Link to this definition">¶</a></dt>
 <dd><p>Check if OpenMP support is available.</p>
 <p>Returns True if the package was compiled with OpenMP support,
 False otherwise. When OpenMP is not available, getA12_parallel
@@ -666,10 +659,24 @@ falls back to serial execution.</p>
 <dd class="field-even"><p>bool</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<p><strong>Examples</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">has_openmp</span><span class="p">()</span>
 <span class="go">False  # or True if compiled with OpenMP</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-attributes">
+<h2>Module Attributes<a class="headerlink" href="#module-attributes" title="Link to this heading">¶</a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="zagar.__version__">
+<span class="sig-prename descclassname"><span class="pre">zagar.</span></span><span class="sig-name descname"><span class="pre">__version__</span></span><a class="headerlink" href="#zagar.__version__" title="Link to this definition">¶</a></dt>
+<dd><p>Current version of the zagar package.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zagar</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zagar</span><span class="o">.</span><span class="n">__version__</span>
+<span class="go">&#39;0.1.0&#39;</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -725,18 +732,44 @@ falls back to serial execution.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">API Reference (Python)</a><ul>
-<li><a class="reference internal" href="#module-zagar">zagar</a><ul>
-<li><a class="reference internal" href="#functions">Functions</a></li>
-<li><a class="reference internal" href="#documentation">Documentation</a></li>
-<li><a class="reference internal" href="#zagar.compareA1A2"><code class="docutils literal notranslate"><span class="pre">compareA1A2()</span></code></a></li>
+<li><a class="reference internal" href="#count-binary-matrices">count_binary_matrices</a><ul>
 <li><a class="reference internal" href="#zagar.count_binary_matrices"><code class="docutils literal notranslate"><span class="pre">count_binary_matrices()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#count-matrices">count_matrices</a><ul>
 <li><a class="reference internal" href="#zagar.count_matrices"><code class="docutils literal notranslate"><span class="pre">count_matrices()</span></code></a></li>
-<li><a class="reference internal" href="#zagar.getA1"><code class="docutils literal notranslate"><span class="pre">getA1()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#geta12">getA12</a><ul>
 <li><a class="reference internal" href="#zagar.getA12"><code class="docutils literal notranslate"><span class="pre">getA12()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#geta12-parallel">getA12_parallel</a><ul>
 <li><a class="reference internal" href="#zagar.getA12_parallel"><code class="docutils literal notranslate"><span class="pre">getA12_parallel()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#geta1">getA1</a><ul>
+<li><a class="reference internal" href="#zagar.getA1"><code class="docutils literal notranslate"><span class="pre">getA1()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#geta2">getA2</a><ul>
 <li><a class="reference internal" href="#zagar.getA2"><code class="docutils literal notranslate"><span class="pre">getA2()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#comparea1a2">compareA1A2</a><ul>
+<li><a class="reference internal" href="#zagar.compareA1A2"><code class="docutils literal notranslate"><span class="pre">compareA1A2()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#get-constraints">get_constraints</a><ul>
 <li><a class="reference internal" href="#zagar.get_constraints"><code class="docutils literal notranslate"><span class="pre">get_constraints()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#has-openmp">has_openmp</a><ul>
 <li><a class="reference internal" href="#zagar.has_openmp"><code class="docutils literal notranslate"><span class="pre">has_openmp()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-attributes">Module Attributes</a><ul>
+<li><a class="reference internal" href="#zagar.__version__"><code class="docutils literal notranslate"><span class="pre">__version__</span></code></a></li>
 </ul>
 </li>
 </ul>
