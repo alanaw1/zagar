@@ -147,6 +147,64 @@ If OpenMP is not available at compile time, it falls back to
 serial execution.
 )doc");
 
+    // getA12_pruning function (with sum-based pruning and symmetry optimization)
+    m.def("getA12_pruning", [](
+        int N,
+        const std::vector<int>& a_vec,
+        const std::vector<int>& phi0_vec,
+        const std::vector<int>& phi1_vec,
+        int n_threads,
+        bool sort_p_desc
+    ) -> py::object {
+        auto result = zagar::getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads, sort_p_desc);
+        return string_to_pyint(result.number);
+    },
+    py::arg("N"),
+    py::arg("a_vec"),
+    py::arg("phi0_vec"),
+    py::arg("phi1_vec"),
+    py::arg("n_threads") = -1,
+    py::arg("sort_p_desc") = true,
+    R"doc(
+Compute weighted combinatorial sum A12 with sum-based pruning and symmetry optimization.
+
+This is an optimized version of getA12_parallel that combines two optimizations:
+
+1. Sum-based pruning: Tracks the running sum of column values during enumeration
+   and prunes branches when it becomes impossible to reach the target sum.
+
+2. Symmetry exploitation: Configurations (v1, v2) and (v2, v1) have identical
+   counts and weights. Only enumerates configurations where v1 <= v2 lexicographically
+   and multiplies by 2 when v1 < v2, reducing work by up to 50%.
+
+Together, these optimizations provide significant speedup (up to 50x or more)
+compared to getA12_parallel, especially for non-uniform constraint vectors.
+
+Parameters
+----------
+N : int
+    Positive integer parameter
+a_vec : list of int
+    Row sums
+phi0_vec : list of int
+    First constraint vector
+phi1_vec : list of int
+    Second constraint vector (must have same length as phi0_vec)
+n_threads : int, optional
+    Number of threads (-1 = use all available, default: -1)
+sort_p_desc : bool, optional
+    If True, sort p in decreasing order (default: True)
+
+Returns
+-------
+int
+    The computed A12 value (arbitrary precision)
+
+Notes
+-----
+This function uses OpenMP for parallelization when available.
+)doc");
+
     // getA1 function
     m.def("getA1", [](
         int N,

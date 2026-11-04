@@ -659,6 +659,240 @@ A12Result getA12_parallel(
     return A12Result{total_sum.convert_to<std::string>()};
 }
 
+// --- Main API: getA12_pruning (with sum-based pruning and symmetry optimization) ---
+// Combines two optimizations:
+// 1. Sum-based pruning: tracks running sum during enumeration, prunes when target unreachable
+// 2. Symmetry: (v1, v2) and (v2, v1) have same count/weight, only enumerate v1 <= v2
+A12Result getA12_pruning(
+    int N,
+    const std::vector<int>& a_vec,
+    const std::vector<int>& phi0,
+    const std::vector<int>& phi1,
+    int n_threads,
+    bool sort_p_desc
+) {
+    if (N <= 0) {
+        throw std::invalid_argument("N must be a positive integer.");
+    }
+
+    int P = static_cast<int>(phi0.size());
+    if (static_cast<int>(phi1.size()) != P) {
+        throw std::invalid_argument("phi0 and phi1 must have the same length.");
+    }
+
+    std::vector<int> p = a_vec;
+    if (sort_p_desc) {
+        std::sort(p.begin(), p.end(), std::greater<int>());
+    }
+
+    long long sum_p = std::accumulate(p.begin(), p.end(), 0LL);
+
+    // Coordinate-level feasibility check
+    for (int i = 0; i < P; ++i) {
+        if (phi1[i] > 2 * N - phi0[i]) {
+            return A12Result{"0"};
+        }
+    }
+
+    // Feasible set zero check
+    for (int i = 0; i < P; ++i) {
+        int Lp = phi1[i];
+        int Up = 2 * N - phi0[i];
+
+        long long S_p = 0;
+        for (int s = Lp; s <= Up; ++s) {
+            int a_min = std::max(0, s - N);
+            int a_max = std::min(N, s);
+            if (a_min <= a_max) {
+                S_p += (a_max - a_min + 1);
+            }
+        }
+
+        if (S_p == 0) {
+            return A12Result{"0"};
+        }
+    }
+
+    int ncols = 2 * P;
+
+    auto B_enum = detail::precompute_binomial(ncols);
+    auto B_enum_u64 = detail::precompute_binomial_u64(ncols);
+    auto B_weight = detail::precompute_binomial(2 * N);
+    auto B_weight_u64 = detail::precompute_binomial_u64(2 * N);
+
+    // Precompute suffix sum bounds for pruning
+    std::vector<long long> suffix_min_sum(P + 1, 0);
+    std::vector<long long> suffix_max_sum(P + 1, 0);
+    for (int j = P - 1; j >= 0; --j) {
+        int min_s = phi1[j];
+        int max_s = 2 * N - phi0[j];
+        suffix_min_sum[j] = suffix_min_sum[j + 1] + min_s;
+        suffix_max_sum[j] = suffix_max_sum[j + 1] + max_s;
+    }
+
+    // Build first-coordinate feasible pairs (with symmetry: only v1[0] <= v2[0])
+    std::vector<std::pair<int, int>> first_pairs;
+    {
+        int L0 = phi1[0];
+        int U0 = 2 * N - phi0[0];
+
+        for (int s = L0; s <= U0; ++s) {
+            int a_min = std::max(0, s - N);
+            int a_max = std::min(N, s);
+            if (a_min > a_max) continue;
+
+            // Only enumerate pairs where a0 <= b0 (symmetry)
+            for (int a0 = a_min; a0 <= a_max; ++a0) {
+                int b0 = s - a0;
+                if (a0 <= b0) {  // Symmetry constraint
+                    first_pairs.emplace_back(a0, b0);
+                }
+            }
+        }
+    }
+
+    if (first_pairs.empty()) {
+        return A12Result{"0"};
+    }
+
+    std::vector<cpp_int> partial_sums(first_pairs.size());
+
+#ifdef ZAGAR_HAS_OPENMP
+    if (n_threads > 0) {
+        omp_set_num_threads(n_threads);
+    }
+
+    #pragma omp parallel for schedule(dynamic)
+    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+#else
+    (void)n_threads;
+    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+#endif
+        cpp_int local_sum = 0;
+
+        std::vector<int> v1(P, 0), v2(P, 0);
+        v1[0] = first_pairs[idx0].first;
+        v2[0] = first_pairs[idx0].second;
+
+        // Store configs with their symmetry multiplier (1 if v1==v2, 2 if v1<v2)
+        struct ConfigWithMult {
+            std::vector<int> cv1, cv2;
+            int multiplier;
+        };
+        std::vector<ConfigWithMult> local_configs;
+
+        // Track comparison state: 0 = equal so far, 1 = v1 < v2, -1 = v1 > v2 (skip)
+        std::function<void(int, long long, int)> enumerate_suffix = [&](int p_idx, long long current_sum, int cmp_state) {
+            if (p_idx == P) {
+                if (cmp_state >= 0) {  // v1 <= v2
+                    int mult = (cmp_state == 0) ? 1 : 2;  // equal -> 1, less -> 2
+                    local_configs.push_back({v1, v2, mult});
+                }
+                return;
+            }
+
+            int Lp = phi1[p_idx];
+            int Up = 2 * N - phi0[p_idx];
+
+            for (int s = Lp; s <= Up; ++s) {
+                long long new_sum = current_sum + s;
+
+                // Sum-based pruning
+                if (new_sum + suffix_min_sum[p_idx + 1] > sum_p) break;
+                if (new_sum + suffix_max_sum[p_idx + 1] < sum_p) continue;
+
+                int a_min = std::max(0, s - N);
+                int a_max = std::min(N, s);
+                if (a_min > a_max) continue;
+
+                for (int a_val = a_min; a_val <= a_max; ++a_val) {
+                    int b_val = s - a_val;
+                    v1[p_idx] = a_val;
+                    v2[p_idx] = b_val;
+
+                    int new_cmp_state;
+                    if (cmp_state != 0) {
+                        // Already decided
+                        new_cmp_state = cmp_state;
+                    } else {
+                        // Still equal, compare this position
+                        if (a_val < b_val) {
+                            new_cmp_state = 1;  // v1 < v2 established
+                        } else if (a_val > b_val) {
+                            new_cmp_state = -1;  // v1 > v2, will be skipped
+                        } else {
+                            new_cmp_state = 0;  // still equal
+                        }
+                    }
+
+                    // Skip if v1 > v2 already established
+                    if (new_cmp_state >= 0) {
+                        enumerate_suffix(p_idx + 1, new_sum, new_cmp_state);
+                    }
+                }
+            }
+        };
+
+        // Initial comparison state based on first pair
+        int init_cmp = (v1[0] < v2[0]) ? 1 : ((v1[0] > v2[0]) ? -1 : 0);
+        long long first_sum = v1[0] + v2[0];
+        enumerate_suffix(1, first_sum, init_cmp);
+
+        if (local_configs.empty()) {
+            partial_sums[idx0] = 0;
+            continue;
+        }
+
+        // Group by L value
+        std::unordered_map<int, std::vector<size_t>> configs_by_L;
+        for (size_t i = 0; i < local_configs.size(); ++i) {
+            const auto& cfg = local_configs[i];
+            int max_q = 0;
+            for (int j = 0; j < P; ++j) {
+                max_q = std::max(max_q, cfg.cv1[j]);
+                max_q = std::max(max_q, cfg.cv2[j]);
+            }
+            int L = max_q + 2;
+            configs_by_L[L].push_back(i);
+        }
+
+        // Process each L-group with shared memo table
+        for (auto& kv : configs_by_L) {
+            int L = kv.first;
+            const std::vector<size_t>& indices = kv.second;
+
+            MemoTable table;
+            table.reserve(1 << 10);
+
+            std::vector<int> root(L, 0);
+            table.emplace(root, cpp_int(1));
+
+            for (size_t cfg_idx : indices) {
+                const auto& cfg = local_configs[cfg_idx];
+                cpp_int contrib = process_a12_config(
+                    p, cfg.cv1, cfg.cv2,
+                    phi0, phi1,
+                    P, N, ncols, L,
+                    table,
+                    B_enum, B_enum_u64,
+                    B_weight, B_weight_u64
+                );
+                // Apply symmetry multiplier
+                local_sum += cpp_int(cfg.multiplier) * contrib;
+            }
+        }
+
+        partial_sums[idx0] = local_sum;
+    }
+
+    cpp_int total_sum = 0;
+    for (size_t i = 0; i < partial_sums.size(); ++i) {
+        total_sum += partial_sums[i];
+    }
+
+    return A12Result{total_sum.convert_to<std::string>()};
+}
+
 // --- Helper: Compute binomial coefficient C(n, k) for large n/k ---
 static cpp_int binomial_large(int n, int k) {
     if (k < 0 || k > n) return cpp_int(0);

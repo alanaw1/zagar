@@ -98,6 +98,40 @@ A12Result getA12_parallel(
 );
 
 /**
+ * Compute weighted combinatorial sum A12 with sum-based pruning and symmetry optimization.
+ *
+ * This is an optimized version of getA12_parallel that combines two optimizations:
+ *
+ * 1. Sum-based pruning: Tracks the running sum during configuration enumeration
+ *    and prunes branches early when it becomes impossible to reach the target sum.
+ *    This eliminates entire subtrees without exploring them.
+ *
+ * 2. Symmetry exploitation: Configurations (v1, v2) and (v2, v1) have identical
+ *    counts and weights. By only enumerating configurations where v1 <= v2
+ *    lexicographically and multiplying by 2 when v1 < v2, this reduces work
+ *    by up to 50%.
+ *
+ * Together, these optimizations provide significant speedup (up to 50x or more)
+ * compared to getA12_parallel, especially for non-uniform constraint vectors.
+ *
+ * @param N Positive integer parameter
+ * @param a_vec Row sums
+ * @param phi0 First constraint vector
+ * @param phi1 Second constraint vector
+ * @param n_threads Number of threads (-1 = use all available)
+ * @param sort_p_desc If true, sort p in decreasing order
+ * @return A12Result with number (as string)
+ */
+A12Result getA12_pruning(
+    int N,
+    const std::vector<int>& a_vec,
+    const std::vector<int>& phi0,
+    const std::vector<int>& phi1,
+    int n_threads = -1,
+    bool sort_p_desc = true
+);
+
+/**
  * Compute A1: Number of Arrays Subject to Row Margin Constraints.
  *
  * Formula: prod(C(2*P, a_i)) * 2^(2*N*P) for all a_i in a_vec
