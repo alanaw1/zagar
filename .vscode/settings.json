@@ -1,0 +1,39 @@
+{
+  // Use the project venv, so Pylance resolves zagar, numpy and the stdlib
+  // the same way the test runner does.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+  // Analysis. "basic" reports real type errors (wrong argument counts,
+  // None where a float is expected) without the noise of "strict".
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+
+  // Show inferred types and parameter names inline -- useful while learning,
+  // since you can see what Python thinks an expression evaluates to.
+  "python.analysis.inlayHints.variableTypes": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.inlayHints.callArgumentNames": "partial",
+
+  // Testing: pytest against ./tests, so failures are clickable in the
+  // Test Explorer rather than read off the terminal.
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+
+  "[python]": {
+    "editor.rulers": [79],
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    // Accept a completion with Tab/Enter, and show the parameter popup
+    // automatically when you type "(".
+    "editor.suggest.insertMode": "replace",
+    "editor.parameterHints.enabled": true
+  },
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.egg-info": true
+  },
+  "python-envs.defaultEnvManager": "ms-python.python:system"
+}

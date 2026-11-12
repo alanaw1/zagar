@@ -80,6 +80,7 @@ the appropriate one there.
 
 from __future__ import annotations
 
+from ast import Return
 import math
 from typing import Dict, NamedTuple, Sequence
 
@@ -124,7 +125,7 @@ def _near(x: float, y: float, tol: float = 1e-8) -> bool:
     bool
         True when ``|x - y| <= tol * max(1, |x|, |y|)``.
     """
-    raise NotImplementedError("see spec section 5")
+    return abs(x - y) <= tol * max(1.0, abs(x), abs(y))
 
 
 def entropy_bits(*p: float) -> float:
@@ -162,7 +163,12 @@ def entropy_bits(*p: float) -> float:
     >>> entropy_bits(0.25, 0.25, 0.25, 0.25)
     2.0
     """
-    raise NotImplementedError("see spec section 5")
+    total = math.fsum(p)
+    if not _near(total, 1.0):
+        raise ValueError(f"Components must sum to 1, got {total}")
+    if any(p_i < -1e-12 for p_i in p):
+        raise ValueError("Components must be non-negative")
+    return -math.fsum(p_i * math.log2(p_i) for p_i in p if p_i > 0.0)
 
 
 def classify_case(abar: float, f0: float, f1: float, tol: float = 1e-8) -> int:
@@ -201,7 +207,25 @@ def classify_case(abar: float, f0: float, f1: float, tol: float = 1e-8) -> int:
     >>> classify_case(0.3, 0.7, 0.3)
     4
     """
-    raise NotImplementedError("see spec section 5")
+    # Check domain
+    if min(abar, f0, f1) <= 0.0 or max(abar, f0, f1) >= 1.0:
+        raise ValueError("Parameters must each be in (0, 1)")
+    # Check that f1 <= abar <= 1 - f0
+    if f1 > abar and not _near(f1, abar, tol):
+        raise ValueError(f"f1 = {f1} > abar = {abar}; |A12| = 0")
+    if abar > 1 - f0 and not _near(abar, 1 - f0, tol):
+        raise ValueError(f"abar = {abar} > 1 - f0 = {1 - f0}; |A12| = 0")
+    # Identify boundaries
+    at_f1 = _near(f1, abar, tol)
+    at_f0 = _near(abar, 1 - f0, tol)
+
+    if at_f1 and at_f0:
+        return 4
+    if at_f1:
+        return 2
+    if at_f0:
+        return 3
+    return 1
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +244,19 @@ def _K_case1(N: int, P: int, abar: float, f0: float, f1: float) -> float:
 
     See spec section 4, Case 1.
     """
-    raise NotImplementedError("see spec section 4, Case 1")
+    alpha = abar * (1 - abar)
+    p0 = 1 - abar - f0            # density of cell type (0, 0)
+    pt = abar - f1                # density of cell type (1, 0)
+    s = p0 + pt                   # = 1 - f0 - f1
+    t1 = -N/(24*P) * (abar**2 - abar + 1) / alpha
+    t2 = -P/(24*N) * (1-f0)*(1-f1)*(f0+f1) / (f0*f1*s)
+    t3 = -(1/4) * (1 - 1/N - 1/P) * (1 - p0*pt/(alpha*s))
+    t4 = (
+        (7*abar**2 - 7*abar + 1)/alpha
+        + 6*p0*pt/(alpha*s)
+        - (p0**2 + pt**2 + p0*pt)/(p0*pt*s)
+    ) / (24*N*P)
+    return t1 + t2 + t3 + t4
 
 
 def _K_case2(N: int, P: int, abar: float, f0: float) -> float:
@@ -232,7 +268,16 @@ def _K_case2(N: int, P: int, abar: float, f0: float) -> float:
 
     See spec section 4, Case 2.
     """
-    raise NotImplementedError("see spec section 4, Case 2")
+    alpha = abar * (1 - abar)
+    tau = 1 - abar - f0
+    return (
+        -N/(24*P) * (abar**2 - abar + 1) / alpha
+        - 1/4
+        + 1/(4*N)
+        + 1/(4*P)
+        - P/(24*N) * (1-f0)*(f0+abar)*(1-abar) / (f0*abar*tau)
+        + (7*abar**2 - 7*abar + 1) / (24*N*P*alpha)
+    )
 
 
 def _K_case4(N: int, P: int, abar: float) -> float:
@@ -245,7 +290,14 @@ def _K_case4(N: int, P: int, abar: float) -> float:
 
     See spec section 4, Case 4.
     """
-    raise NotImplementedError("see spec section 4, Case 4")
+    alpha = abar * (1 - abar)
+    term1 = (6*abar**2 - 6*abar + 1) * (N + P - 1)**2 / (16*N*P*alpha)
+    term2 = (
+        (2*abar - 1)**2
+        * (5*N**2 + 6*N*P - 6*N + 5*P**2 - 6*P + 1)
+        / (48*N*P*alpha)
+    )
+    return term1 - term2
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +314,7 @@ def _assemble(N: int, P: int, H: float, log2_delta: float, D: int, K: float) -> 
 
     See spec section 2.
     """
-    raise NotImplementedError("see spec section 2")
+    return 2*N*P*H - log2_delta/2 - (D/2)*math.log2(math.pi) - D + K*_LOG2E
 
 
 def _case1(N: int, P: int, abar: float, f0: float, f1: float) -> _Parts:
@@ -270,7 +322,20 @@ def _case1(N: int, P: int, abar: float, f0: float, f1: float) -> _Parts:
 
     See spec section 4, Case 1, for ``H`` and ``log2 Delta``.
     """
-    raise NotImplementedError("see spec section 4, Case 1")
+    alpha = abar * (1 - abar)
+    H = entropy_bits(1 - abar - f0, abar - f1, f1, f0)
+    log2_delta = (
+        N*math.log2(P)
+        + 2*P*math.log2(N)
+        + (N - 1)*math.log2(alpha)
+        + P*math.log2(f0*f1)
+        + (P - 1)*math.log2(1 - f0 - f1)
+        + math.log2((abar - f1)*(1 - abar - f0))
+    )
+    D = N + 2*P
+    K = _K_case1(N, P, abar, f0, f1)
+    value = _assemble(N, P, H, log2_delta, D, K)
+    return _Parts(value, H, log2_delta, D, K)
 
 
 def _case2(N: int, P: int, abar: float, f0: float) -> _Parts:
@@ -278,7 +343,18 @@ def _case2(N: int, P: int, abar: float, f0: float) -> _Parts:
 
     See spec section 4, Case 2, for ``H`` and ``log2 Delta``.
     """
-    raise NotImplementedError("see spec section 4, Case 2")
+    alpha = abar * (1 - abar)
+    H = entropy_bits(abar, f0, 1 - abar - f0)
+    log2_delta = (
+        (N - 1)*math.log2(P)
+        + (2*P - 1)*math.log2(N)
+        + (N - 1)*math.log2(alpha)
+        + P*math.log2(abar*f0*(1 - abar - f0))
+    )
+    D = N + 2*P - 1
+    K = _K_case2(N, P, abar, f0)
+    value = _assemble(N, P, H, log2_delta, D, K)
+    return _Parts(value, H, log2_delta, D, K)
 
 
 def _case3(N: int, P: int, abar: float, f1: float) -> _Parts:
@@ -295,7 +371,7 @@ def _case3(N: int, P: int, abar: float, f1: float) -> _Parts:
     Note that ``f0`` is not an argument: on this face ``f0 = 1 - abar``, so
     passing it would be redundant and would invite the two to disagree.
     """
-    raise NotImplementedError("one line; see spec section 4, Case 3")
+    return _case2(N, P, 1 - abar, f1)
 
 
 def _case4(N: int, P: int, abar: float) -> _Parts:
@@ -303,7 +379,17 @@ def _case4(N: int, P: int, abar: float) -> _Parts:
 
     See spec section 4, Case 4, for ``H`` and ``log2 Delta``.
     """
-    raise NotImplementedError("see spec section 4, Case 4")
+    alpha = abar * (1 - abar)
+    H = entropy_bits(abar, 1 - abar)
+    log2_delta = (
+        (N - 1)*math.log2(P)
+        + (P - 1)*math.log2(N)
+        + (N + P - 1)*math.log2(alpha)
+    )
+    D = N + P - 1
+    K = _K_case4(N, P, abar)
+    value = _assemble(N, P, H, log2_delta, D, K)
+    return _Parts(value, H, log2_delta, D, K)
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +460,27 @@ def log2_A12_asymptotic(
     >>> log2_A12_asymptotic(8, 8, 0.25, 0.75, 0.25, details=True)["case"]
     4
     """
-    raise NotImplementedError("see spec section 6")
+    if N <= 0 or P <= 0:
+        raise ValueError(f"N = {N} and P = {P} must be positive integers")
+    case = classify_case(abar, f0, f1, tol)
+    if case == 1:
+        parts = _case1(N, P, abar, f0, f1)
+    elif case == 2:
+        parts = _case2(N, P, abar, f0)
+    elif case == 3:
+        parts = _case3(N, P, abar, f1)
+    else:  # case == 4
+        parts = _case4(N, P, abar)
+
+    if not details:
+        return parts.log2_A12
+
+    return dict(log2_A12=parts.log2_A12,
+                case=case,
+                entropy=parts.entropy,
+                log2_delta=parts.log2_delta,
+                dimension=parts.dimension,
+                K=parts.K)
 
 
 def densities_from_constraints(
@@ -424,4 +530,25 @@ def densities_from_constraints(
     >>> (d["abar"], d["f0"], d["f1"])
     (0.5, 0.25, 0.25)
     """
-    raise NotImplementedError("see spec section 5")
+    P = len(phi0_vec)
+
+    if len(a_vec) != N:
+        raise ValueError(f"Length of a_vec = {len(a_vec)} != N = {N}")
+    if len(phi1_vec) != P:
+        raise ValueError(
+            f"phi1_vec has length {len(phi1_vec)}, but phi0_vec has length {P}; "
+            "they must agree"
+        )
+    for name, vec in (("a_vec", a_vec), ("phi0_vec", phi0_vec),
+                      ("phi1_vec", phi1_vec)):
+        if any(x != vec[0] for x in vec):
+            raise ValueError(
+                f"{name} is not constant; the asymptotic formulas require "
+                "semi-regular constraints"
+            )
+
+    return dict(N=N,
+                P=P,
+                abar=a_vec[0] / (2 * P),
+                f0=phi0_vec[0] / (2 * N),
+                f1=phi1_vec[0] / (2 * N))
