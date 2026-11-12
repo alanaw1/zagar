@@ -159,9 +159,11 @@ def test_case4_reproduces_legacy_symmetric_approximation():
 # not optional: round(2 * 9 * 0.25) is 4, not 5, so the obvious way of writing
 # a row silently enumerates a different parameter point.
 #
-# Case 1 is the expensive regime -- N = P = 9 takes 47 s and 2.5 GiB, and
-# N = P = 10 exceeds 16 GiB -- while the degenerate regimes are cheap, which is
-# why cases 2, 3 and 4 reach further.
+# Case 1 is the expensive regime, which is why cases 2, 3 and 4 reach further
+# at the same cost.  How far Case 1 reaches depends on count_A12_dp's
+# transition cache rather than on the layer widths: N = P = 10 needs 13 min and
+# 546 MB with the cache disabled, where exact_dp's complexity table reports it
+# exhausting 16 GiB with the cache on.
 # ---------------------------------------------------------------------------
 
 
@@ -177,6 +179,13 @@ def test_case4_reproduces_legacy_symmetric_approximation():
         # f0 = f1 = 1/3 rather than 1/4: at N = 9, 2N * 0.25 is not an integer,
         # so a quarter-density row cannot be built here at all.
         (9, 9, 0.5, 1 / 3, 1 / 3, 248.9962, 1),
+        # The largest Case 1 point here, and the slowest to reproduce: 13 min
+        # and 546 MB, with count_A12_dp's transition cache disabled.  With the
+        # cache on it does exhaust a 16 GB machine, which is what the
+        # complexity table in exact_dp's docstring reports.  The reference
+        # suite carried this row at 330.0200; the enumerated value is
+        # 330.019726, so that was 0.0003 bits off.
+        (10, 10, 0.5, 0.25, 0.25, 330.0197, 1),
         (4, 4, 0.5, 0.25, 0.5, 29.9929, 2),
         (4, 8, 0.5, 0.25, 0.5, 63.3956, 2),
         (6, 6, 0.5, 0.25, 0.5, 75.2987, 2),
