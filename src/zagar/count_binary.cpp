@@ -784,6 +784,19 @@ A12Result getA12_pruning(
         // Track comparison state: 0 = equal so far, 1 = v1 < v2, -1 = v1 > v2 (skip)
         std::function<void(int, long long, int)> enumerate_suffix = [&](int p_idx, long long current_sum, int cmp_state) {
             if (p_idx == P) {
+                // The total column sum must equal the total row sum.  For
+                // P >= 2 the incremental bounds below already force this at the
+                // last coordinate, but they are only applied for p_idx >= 1:
+                // the first coordinate comes from first_pairs, which is built
+                // without reference to sum_p.  So when P == 1 nothing else
+                // checks it, infeasible configurations reach
+                // process_a12_config, and its recursion indexes p_pad past the
+                // end -- returning a wrong count or faulting, depending on what
+                // happens to be in memory.  Mirrors the explicit check in
+                // getA12's enumerate_configs.
+                if (current_sum != sum_p) {
+                    return;
+                }
                 if (cmp_state >= 0) {  // v1 <= v2
                     int mult = (cmp_state == 0) ? 1 : 2;  // equal -> 1, less -> 2
                     local_configs.push_back({v1, v2, mult});

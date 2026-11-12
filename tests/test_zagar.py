@@ -165,6 +165,44 @@ class TestGetA12Pruning:
     def test_infeasible_returns_zero(self):
         assert zagar.getA12_pruning(2, [0, 0], [0], [3]) == 0
 
+    def test_single_locus(self):
+        """P = 1 was wrong before 0.2.0, silently and intermittently.
+
+        The sum-based prune is applied only from the second coordinate
+        onwards, and the first coordinate's candidates are built without
+        reference to the row-sum total, so with a single locus nothing
+        enforced that the column sums add up to the row sums.  Infeasible
+        configurations reached the counting recursion, which then indexed past
+        the end of its padded row-sum vector: the call returned whatever
+        happened to be in memory, or faulted.  On this input it returned 10
+        about as often as it returned the right answer.
+
+        Both values below are small enough to check by hand, which is the
+        point -- a regression test for a memory bug should not itself depend
+        on the code that had the bug.
+        """
+        # a_vec is all zeros, so A == 0 and all 2N = 4 haplotypes are
+        # ancestry 0.  One alternative allele must land on one of them.
+        assert zagar.getA12_pruning(2, [0, 0], [1], [0]) == 4
+        # Same A, but now three alternative alleles are demanded on
+        # ancestry-1 haplotypes, of which there are none.
+        assert zagar.getA12_pruning(2, [0, 0], [0], [3]) == 0
+
+    @pytest.mark.parametrize("N", [1, 2, 3, 4])
+    def test_single_locus_matches_serial_exhaustively(self, N):
+        """Every valid single-locus instance at this N, against getA12.
+
+        Exhaustive rather than random: the defect was confined to P == 1, so
+        the whole space is small enough to close completely.
+        """
+        for phi0 in range(2 * N + 1):
+            for phi1 in range(2 * N + 1 - phi0):
+                for a in range(3):          # a_n <= 2P = 2
+                    a_vec = [a] * N
+                    assert zagar.getA12_pruning(
+                        N, a_vec, [phi0], [phi1]
+                    ) == zagar.getA12(N, a_vec, [phi0], [phi1])
+
 
 class TestModuleAttributes:
     """Tests for module-level attributes."""
