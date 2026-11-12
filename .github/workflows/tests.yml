@@ -1,0 +1,68 @@
+name: Tests
+
+# Until this existed, nothing ran the test suite on push: build_wheels.yml only
+# runs a one-line smoke import, and only on v* tags.  That is how three
+# doctests stayed broken indefinitely.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false        # one platform failing should not hide the others
+      matrix:
+        include:
+          # The oldest and newest interpreters the wheels claim to support,
+          # plus one in between, on Linux; one macOS run to cover the
+          # Homebrew/libomp path that differs from Linux.
+          - os: ubuntu-latest
+            python-version: '3.9'
+          - os: ubuntu-latest
+            python-version: '3.11'
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: macos-14
+            python-version: '3.12'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Boost (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev cmake
+
+      # libomp is optional: CMakeLists falls back to a serial build without it,
+      # but then the parallel backends are never exercised.
+      - name: Install Boost and libomp (macOS)
+        if: runner.os == 'macOS'
+        run: brew install boost libomp
+
+      - name: Install the package
+        run: pip install -e ".[test]"
+
+      # Diagnostic only: which optional pieces got built varies by runner, and
+      # knowing that from the log saves guessing when a test fails on one
+      # platform and not another.  getattr so a rename here cannot fail CI.
+      - name: Report the build configuration
+        run: |
+          python -c "import zagar; print('zagar', zagar.__version__)"
+          python -c "import zagar; print('OpenMP:', zagar.has_openmp())"
+          python -c "import zagar.exact_dp as d; print('C++ DP backend:', getattr(d, '_count_A12_dp_cpp', None) is not None)"
+
+      # Bare pytest, so this picks up testpaths from pyproject.toml and runs the
+      # doctests alongside tests/.
+      - name: Run the test suite
+        run: pytest -q

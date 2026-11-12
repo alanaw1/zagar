@@ -32,6 +32,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 keywords = ["combinatorics", "binary matrices", "counting"]
+# numpy is imported at module scope in __init__.py (get_constraints takes and
+# returns arrays), so without this `import zagar` fails outright on a clean
+# install.  0.1.0 declared no runtime dependencies at all.
+dependencies = [
+    "numpy",
+]
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
