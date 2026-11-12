@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include "count_binary.hpp"
+#include "dp_transitions.hpp"
 
 namespace py = pybind11;
 
@@ -337,6 +338,66 @@ Examples
 >>> zagar.has_openmp()
 False  # or True if compiled with OpenMP
 )doc");
+
+    // locus_transitions: the inner enumeration of zagar.exact_dp's dynamic
+    // program, which dominates its runtime.
+    m.def("locus_transitions", [](py::bytes hist_bytes) -> py::list {
+        char* buf = nullptr;
+        py::ssize_t len = 0;
+        if (PYBIND11_BYTES_AS_STRING_AND_SIZE(hist_bytes.ptr(), &buf, &len) != 0) {
+            throw py::error_already_set();
+        }
+        std::vector<int> hist(static_cast<size_t>(len));
+        for (py::ssize_t i = 0; i < len; ++i) {
+            hist[static_cast<size_t>(i)] =
+                static_cast<int>(static_cast<unsigned char>(buf[i]));
+        }
+
+        auto out = zagar::locus_transitions(hist);
+
+        py::list result;
+        for (const auto& kv : out) {
+            const std::string& k = kv.first;
+            const int s = static_cast<int>(static_cast<unsigned char>(k.back()));
+            result.append(py::make_tuple(
+                py::bytes(k.data(), k.size() - 1),
+                s,
+                kv.second
+            ));
+        }
+        return result;
+    },
+    py::arg("hist"),
+    R"doc(
+Enumerate one locus's transitions out of a histogram of remaining row sums.
+
+This is the inner loop of the dynamic program in :mod:`zagar.exact_dp`, which
+spends roughly 86% of its time here. It is exposed for that module's use and
+for benchmarking against the pure-Python equivalent; it is not part of the
+public API and its signature may change.
+
+Parameters
+----------
+hist : bytes
+    ``hist[r]`` is the number of rows whose remaining row sum is ``r``.
+
+Returns
+-------
+list of (bytes, int, int)
+    One ``(new_hist, s, ways)`` triple per reachable state, where ``new_hist``
+    has had its trailing zeros dropped, ``s`` is the number of ancestry-1
+    haplotypes placed at this locus, and ``ways`` counts the ways of getting
+    there including the ``C(2, 1) = 2`` factor per row taking the value 1.
+
+Raises
+------
+OverflowError
+    If a weight would exceed 64 bits, which cannot happen for
+    ``sum(hist) <= 31``.
+)doc");
+
+    // Largest sum(hist) for which the uint64 weights cannot overflow.
+    m.attr("DP_TRANSITIONS_MAX_N") = zagar::DP_TRANSITIONS_MAX_N;
 
     // Version info
     m.attr("__version__") = "0.1.0";

@@ -12,7 +12,7 @@ from itertools import combinations, product
 import pytest
 
 import zagar
-from zagar.exact_dp import count_A12_dp
+from zagar.exact_dp import _locus_transitions, count_A12_dp
 
 PAPER_EXAMPLE = (3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1])
 PAPER_EXAMPLE_COUNT = 133520
@@ -170,6 +170,106 @@ def test_complement_bijection_preserves_the_count():
     # Both sides are zero on an infeasible instance, so a draw that is mostly
     # infeasible would satisfy the identity without exercising it.
     assert nonzero > 20, f"only {nonzero} feasible draws; the test is weak"
+
+
+# ---------------------------------------------------------------------------
+# The C++ transition backend
+#
+# _core.locus_transitions is a port of _locus_transitions, which is ~86% of the
+# dynamic program's runtime.  The Python version stays as the reference the
+# port is checked against, so these tests compare the two directly rather than
+# only comparing final counts: a port that was wrong on some histogram the DP
+# never visits would otherwise pass.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    zagar.exact_dp._locus_transitions_cpp is None,
+    reason="built without the C++ extension",
+)
+def test_cpp_transitions_match_python_exhaustively():
+    """Every histogram of at most 6 rows over at most 5 levels."""
+    cpp = zagar.exact_dp._locus_transitions_cpp
+    checked = 0
+    for width in range(1, 6):
+        for total in range(1, 7):
+            for hist in product(range(total + 1), repeat=width):
+                if sum(hist) != total:
+                    continue
+                if width > 1 and hist[-1] == 0:
+                    continue        # not trimmed; the DP never produces these
+                got = {(h, s): w for h, s, w in cpp(bytes(hist))}
+                want = {(h, s): w for h, s, w in _locus_transitions(hist)}
+                assert got == want, hist
+                checked += 1
+    assert checked > 200, f"only {checked} histograms covered"
+
+
+@pytest.mark.skipif(
+    zagar.exact_dp._locus_transitions_cpp is None,
+    reason="built without the C++ extension",
+)
+def test_cpp_transitions_match_python_on_random_histograms():
+    """Wider and taller than the exhaustive sweep reaches."""
+    cpp = zagar.exact_dp._locus_transitions_cpp
+    rng = random.Random(31)
+    for _ in range(300):
+        total = rng.randint(1, 12)
+        width = rng.randint(1, 8)
+        hist = [0] * width
+        for _ in range(total):
+            hist[rng.randrange(width)] += 1
+        while len(hist) > 1 and hist[-1] == 0:
+            hist.pop()
+        got = {(h, s): w for h, s, w in cpp(bytes(hist))}
+        want = {(h, s): w for h, s, w in _locus_transitions(tuple(hist))}
+        assert got == want, hist
+
+
+@pytest.mark.skipif(
+    zagar.exact_dp._locus_transitions_cpp is None,
+    reason="built without the C++ extension",
+)
+def test_cpp_transitions_raise_rather_than_wrap_on_overflow():
+    """Weights are uint64; past the documented bound it must refuse, not wrap.
+
+    Total weight out of one histogram is at most 4**sum(hist), so 31 rows is
+    the last safe size.  A silent wrap here would produce a plausible-looking
+    wrong count, which is the failure mode this package has already been bitten
+    by once.
+    """
+    assert zagar.exact_dp._CPP_MAX_N == 31
+    zagar.exact_dp._locus_transitions_cpp(bytes([0, 0, 31]))      # fine
+    with pytest.raises(OverflowError):
+        zagar.exact_dp._locus_transitions_cpp(bytes([0, 0, 40]))
+
+
+@pytest.mark.parametrize("cache", [False, True])
+def test_backends_and_cache_agree_on_the_count(cache):
+    """The count must not depend on the transition backend or the cache.
+
+    ``cache_transitions`` and the C++ port are both pure optimisations, so this
+    is the end-to-end statement of that claim.
+    """
+    rng = random.Random(13)
+    for _ in range(40):
+        N, a, phi0, phi1 = random_instance(rng, max_N=4, max_P=3)
+        want = count_A12_dp(N, a, phi0, phi1)
+        assert count_A12_dp(N, a, phi0, phi1, cache_transitions=cache) == want
+    assert count_A12_dp(*PAPER_EXAMPLE, cache_transitions=cache) == PAPER_EXAMPLE_COUNT
+
+
+def test_python_fallback_gives_the_same_count(monkeypatch):
+    """Forcing the pure-Python kernel must not change any answer.
+
+    Guards the fallback path that a build without the extension would take.
+    """
+    monkeypatch.setattr(zagar.exact_dp, "_locus_transitions_cpp", None)
+    assert count_A12_dp(*PAPER_EXAMPLE) == PAPER_EXAMPLE_COUNT
+    rng = random.Random(17)
+    for _ in range(30):
+        N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
+        assert count_A12_dp(N, a, phi0, phi1) == zagar.getA12(N, a, phi0, phi1)
 
 
 # ---------------------------------------------------------------------------

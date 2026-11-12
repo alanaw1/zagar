@@ -30,31 +30,48 @@ enumerated --- which is the step that dominates the Miller--Harrison approach.
 Complexity
 ----------
 The state is a composition of ``N`` into at most ``max(a_vec) + 1`` parts, and
-the width of the widest layer is what governs both time and memory.  Measured
-against the column-sum enumeration in ``_core`` at the Case 1 interior point
-``abar = 1/2``, ``f0 = f1 = 1/4`` (Apple M2, 16 GB; the peak RSS figures
-include a ~10 MB interpreter baseline):
+the number of reachable states is what makes this exponential: the widest layer
+holds 11,802 states at ``N = P = 8`` and 175,070 at ``N = P = 10``, growing by
+a factor of seven or eight per unit of ``N``.
 
-=======  ============================  ==========================
-``N=P``  ``_core`` (Miller--Harrison)  this module
-=======  ============================  ==========================
-4        0.014 s, 27 MB                0.001 s, 24 MB
-5        2.0 s, 492 MB                 0.008 s, 26 MB
-6        exhausts 16 GB                0.14 s, 35 MB
-7        --                            0.68 s, 97 MB
-8        --                            7.2 s, 719 MB
-9        --                            50 s, 5.0 GB
-10       --                            beyond 16 GB
-=======  ============================  ==========================
+Only one layer is held at a time, so that growth is modest in absolute terms --
+the whole ``N = P = 10`` run fits in 75 MB.  What dominates peak memory is
+``cache_transitions``, because each cached entry is an entire transition table
+of a few hundred triples; see that parameter's documentation for the figures.
+It is off by default.
 
-Both algorithms are exponential; this one simply has a much smaller base.
+Measured against the column-sum enumeration in ``_core`` at the Case 1 interior
+point ``abar = 1/2``, ``f0 = f1 = 1/4``, with ``cache_transitions=False``
+(Apple M2, 16 GB; peak RSS includes a ~10 MB interpreter baseline):
+
+=======  ============================  ================  ================
+``N=P``  ``_core`` (Miller--Harrison)  this module, C++  this module, pure
+                                       transitions       Python
+=======  ============================  ================  ================
+4        0.014 s, 27 MB                0.000 s, 24 MB    0.001 s, 24 MB
+5        2.0 s, 492 MB                 0.004 s, 24 MB    0.016 s, 24 MB
+6        exhausts 16 GB                0.031 s, 24 MB    0.19 s, 25 MB
+7        --                            0.25 s, 25 MB     0.99 s, 27 MB
+8        --                            2.1 s, 28 MB      9.1 s, 65 MB
+9        --                            16 s, 35 MB       72 s, 174 MB
+10       --                            165 s, 75 MB      720 s, 542 MB
+=======  ============================  ================  ================
+
+All of these are exponential; this one simply has a much smaller base.
+
+The C++ enumeration (``_core.locus_transitions``) accounts for about 86% of the
+pure-Python runtime and is roughly 7x faster, so the end-to-end gain is about
+4.4x and cannot exceed 7x without moving the layer loop itself into C++: what
+remains is big-integer arithmetic and dictionary updates on the Python side.
+The port is also what keeps memory flat, since the Python version's internal
+dictionary and list of triples are a large transient at every state.
 
 This point, and not ``abar = f0 = f1 = 1/2``, is the expensive one.  Setting
 ``abar = 1/2`` does maximise the number of reachable histograms, but taking
 ``f0 = f1 = 1/2`` saturates every locus: ``f0 + f1 = 1`` forces ``X == 1``
 everywhere (Case 4 of :mod:`zagar.asymptotics`), leaving each locus a single
-admissible column sum.  That is far cheaper --- ``N = P = 7`` costs 0.08 s
-there against 0.68 s here.  Skewing ``abar`` away from 1/2 likewise shrinks the
+admissible column sum.  That is far cheaper --- ``N = P = 7`` costs 0.010 s
+there against 0.28 s here.  Skewing ``abar`` away from 1/2 likewise shrinks the
 state space.
 
 Non-uniform constraints are supported.  Loci are processed in an order chosen to
@@ -66,6 +83,13 @@ from __future__ import annotations
 
 from math import comb
 from typing import Dict, List, Sequence, Tuple
+
+try:
+    from ._core import DP_TRANSITIONS_MAX_N as _CPP_MAX_N
+    from ._core import locus_transitions as _locus_transitions_cpp
+except ImportError:                     # pragma: no cover
+    _locus_transitions_cpp = None       # pure-Python fallback
+    _CPP_MAX_N = 0
 
 __all__ = ["count_A12_dp"]
 
@@ -107,8 +131,9 @@ def _trim(h: List[int]):
 
     Returns ``bytes`` when every count fits in a byte, which it does whenever
     ``N <= 255``; this is three to four times smaller than the equivalent tuple
-    of ints and is what sets how large a layer can get.  Falls back to a tuple
-    otherwise, though the state space is far out of reach at such ``N``.
+    of ints.  Falls back to a tuple otherwise, though the state space is far
+    out of reach at such ``N``, and the C++ transition backend only accepts
+    ``bytes``.
     """
     end = len(h)
     while end > 1 and h[end - 1] == 0:
@@ -120,20 +145,28 @@ def _trim(h: List[int]):
         return tuple(view)
 
 
-def _locus_transitions(hist: Tuple[int, ...]) -> Dict[Tuple[Tuple[int, ...], int], int]:
+def _locus_transitions(hist) -> List[Tuple[object, int, int]]:
     """Ways one locus can reduce the remaining row sums.
+
+    The pure-Python equivalent of ``_core.locus_transitions``, kept as a
+    fallback for builds without the extension and as the reference the C++
+    version is tested against.  The two return the same triples, so either can
+    be dropped into the driver below; the C++ one is 20-40x faster and is used
+    whenever it is available and ``N`` is within its 64-bit weight bound.
 
     Parameters
     ----------
-    hist : tuple of int
+    hist : bytes or tuple of int
         ``hist[r]`` is the number of rows whose remaining row sum is ``r``.
 
     Returns
     -------
-    dict
-        Maps ``(new_hist, s)`` to the number of ways to reach it, where ``s`` is
+    list of (bytes or tuple, int, int)
+        One ``(new_hist, s, ways)`` triple per reachable state, where ``s`` is
         the number of ancestry-1 haplotypes placed at this locus.  The factor
-        ``C(2, 1) = 2`` for each row taking the value 1 is included.
+        ``C(2, 1) = 2`` for each row taking the value 1 is included in
+        ``ways``.  Distinct choices can land on the same state, so weights are
+        summed rather than listed separately.
     """
     levels = [r for r in range(len(hist)) if hist[r]]
     out: Dict[Tuple[Tuple[int, ...], int], int] = {}
@@ -164,7 +197,7 @@ def _locus_transitions(hist: Tuple[int, ...]) -> Dict[Tuple[Tuple[int, ...], int
                     work[r - 2] -= k2
 
     rec(0, 0, 1)
-    return out
+    return [(h, s, w) for (h, s), w in out.items()]
 
 
 def count_A12_dp(
@@ -173,6 +206,7 @@ def count_A12_dp(
     phi0_vec: Sequence[int],
     phi1_vec: Sequence[int],
     reorder_loci: bool = True,
+    cache_transitions: bool = False,
 ) -> int:
     """Exact ``|A12|`` by dynamic programming over loci.
 
@@ -192,6 +226,29 @@ def count_A12_dp(
     reorder_loci : bool, optional
         Process the most constraining loci first (default True).  This only
         affects speed; permuting loci does not change the count.
+    cache_transitions : bool, optional
+        Memoise each histogram's transition table across layers (default
+        False).  A layer is keyed by histogram, so a table is only ever reused
+        if the same histogram recurs in a *later* layer, while each cached
+        table holds a few hundred triples.  Measured at ``abar = 1/2``,
+        ``f0 = f1 = 1/4``:
+
+        =======  =========  =================  ==================
+        ``N=P``  backend    ``False``          ``True``
+        =======  =========  =================  ==================
+        8        C++        2.1 s, 28 MB       2.2 s, 598 MB
+        9        C++        16 s, 35 MB        18 s, 2883 MB
+        8        Python     9.1 s, 65 MB       7.1 s, 614 MB
+        9        Python     72 s, 174 MB       55 s, 2971 MB
+        =======  =========  =================  ==================
+
+        With the C++ enumeration the cache is slower *and* uses two orders of
+        magnitude more memory -- recomputing costs less than the dictionary
+        lookup it saves -- so there is no reason to enable it.  It helps only
+        in a build without the extension, and even there it buys about 23% of
+        the time for ten to seventeen times the memory.  Kept as an option
+        rather than deleted because that trade is occasionally the right one,
+        but it is not the default and should not be.
 
     Returns
     -------
@@ -214,7 +271,8 @@ def count_A12_dp(
     """
     a_vec = _pad_a_vec(N, a_vec)
     P = _validate(N, a_vec, phi0_vec, phi1_vec)
-    if sum(a_vec) == 0 and all(x == 0 for x in phi0_vec) and all(x == 0 for x in phi1_vec):
+    if (sum(a_vec) == 0 and all(x == 0 for x in phi0_vec)
+            and all(x == 0 for x in phi1_vec)):
         return 1
     if P == 0:
         return 1 if all(a == 0 for a in a_vec) else 0
@@ -242,12 +300,18 @@ def count_A12_dp(
     for a in a_vec:
         start[a] += 1
 
+    # The C++ enumeration needs ``bytes`` keys, which ``_trim`` gives whenever
+    # N <= 255, and 64-bit weights, which hold whenever N <= _CPP_MAX_N.
+    transitions = _locus_transitions
+    if _locus_transitions_cpp is not None and N <= _CPP_MAX_N:
+        transitions = _locus_transitions_cpp
+
     # Forward layered dynamic program.  ``layer`` maps a histogram of remaining
     # row sums to the total weight of all ways of reaching it with the loci
-    # processed so far.  Only one layer is held at a time, so peak memory is set
-    # by the widest layer rather than by the whole state space.
+    # processed so far.  Only one layer is held at a time, so the whole state
+    # space is never materialised.
     layer = {_trim(start): 1}
-    trans_cache: Dict[object, Dict[Tuple[object, int], int]] = {}
+    trans_cache: Dict[object, List[Tuple[object, int, int]]] = {}
 
     for p in range(P):
         w_table = colw[p]
@@ -258,11 +322,14 @@ def count_A12_dp(
             # The ancestry-1 entries still to place are determined by the
             # histogram, so this is computed once per state, not per transition.
             total = sum(r * c for r, c in enumerate(hist))
-            trans = trans_cache.get(hist)
-            if trans is None:
-                trans = _locus_transitions(hist)
-                trans_cache[hist] = trans
-            for (new_hist, s), ways in trans.items():
+            if cache_transitions:
+                trans = trans_cache.get(hist)
+                if trans is None:
+                    trans = transitions(hist)
+                    trans_cache[hist] = trans
+            else:
+                trans = transitions(hist)
+            for new_hist, s, ways in trans:
                 cw = w_table[s]
                 if not cw:
                     continue
@@ -281,8 +348,10 @@ def count_A12_dp(
         if not layer:
             return 0
         # Histograms shrink as rows are exhausted, so stale transition entries
-        # are never reused; drop them to keep the cache proportional to a layer.
-        if len(trans_cache) > 4 * len(layer) + 1024:
+        # are never reused; drop them once the cache outgrows a layer.  The
+        # bound counts cached tables, each of which holds a few hundred
+        # triples, which is why the cache dominates peak memory when enabled.
+        if cache_transitions and len(trans_cache) > 4 * len(layer) + 1024:
             trans_cache.clear()
 
     return layer.get(_trim([N]), 0)

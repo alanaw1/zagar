@@ -85,6 +85,7 @@ find_package(OpenMP QUIET)
 set(SOURCES
     src/zagar/_core.cpp
     src/zagar/count_binary.cpp
+    src/zagar/dp_transitions.cpp
 )
 
 # Create the Python module
