@@ -15,6 +15,27 @@ getA12(N, a_vec, phi0_vec, phi1_vec, sort_p_desc=True)
 getA12_parallel(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True)
     Cardinality of Doubly Constrained Admixed Arrays (Parallelized)
 
+getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True)
+    Cardinality of Doubly Constrained Admixed Arrays (with Pruning and Symmetry)
+
+count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto")
+    Exact :math:`|\\mathscr{A}_{12}|` with a Selectable Backend
+
+count_A12_dp(N, a_vec, phi0_vec, phi1_vec, reorder_loci=True)
+    Exact :math:`|\\mathscr{A}_{12}|` by Dynamic Programming over Loci
+
+log2_A12_asymptotic(N, P, abar, f0, f1, tol=1e-8, details=False)
+    Asymptotic :math:`\\log_2 |\\mathscr{A}_{12}|` for Semi-Regular Constraints
+
+classify_case(abar, f0, f1, tol=1e-8)
+    Regime (1-4) of Theorem 3.1 for a Density Triple
+
+entropy_bits(*p)
+    Shannon Entropy, in Bits, of a Probability Vector
+
+densities_from_constraints(N, a_vec, phi0_vec, phi1_vec, tol=1e-8)
+    Recover :math:`(\\bar a, f_0, f_1)` from Integer Constraint Vectors
+
 getA1(N, P, a_vec, return_log=False)
     Cardinality of :math:`\\mathscr{A}_1`: Number of Arrays Subject to Row Margin Constraints
 
@@ -50,6 +71,13 @@ from ._core import (
     getA2,
     has_openmp,
 )
+from .asymptotics import (
+    classify_case,
+    densities_from_constraints,
+    entropy_bits,
+    log2_A12_asymptotic,
+)
+from .exact_dp import count_A12_dp
 
 __version__ = "0.1.0"
 __all__ = [
@@ -63,7 +91,18 @@ __all__ = [
     "get_constraints",
     "count_matrices",
     "has_openmp",
+    # exact enumeration
+    "count_A12",
+    "count_A12_dp",
+    # asymptotic enumeration (Theorem 3.1, all four regimes)
+    "log2_A12_asymptotic",
+    "classify_case",
+    "entropy_bits",
+    "densities_from_constraints",
 ]
+
+#: Backends accepted by :func:`count_A12`.
+_EXACT_METHODS = ("dp", "column-sums", "column-sums-parallel", "column-sums-pruning")
 
 
 def _is_regular_case(N, a_vec, phi0_vec, phi1_vec):
@@ -79,9 +118,23 @@ def _is_regular_case(N, a_vec, phi0_vec, phi1_vec):
     return True
 
 
+def _is_semiregular(a_vec, phi0_vec, phi1_vec):
+    """True when every constraint vector is constant, as Theorem 3.1 requires."""
+    return (
+        len(set(a_vec)) == 1
+        and len(set(phi0_vec)) == 1
+        and len(set(phi1_vec)) == 1
+    )
+
+
 def _compute_approximations(N, P):
     """
     Compute Mathematical Approximations for Regular Case.
+
+    This is the symmetric point :math:`\\bar a = f_0 = f_1 = 1/2`, which is
+    Case 4 of :func:`log2_A12_asymptotic` at :math:`\\bar a = 1/2`; the two
+    agree to floating-point precision.  It is retained so that the output of
+    :func:`getA12` is unchanged for callers who relied on it.
 
     Returns
     -------
@@ -105,6 +158,123 @@ def _compute_approximations(N, P):
         "log2_upper_bound": log2_upper_bound,
         "log2_approx": log2_approx,
     }
+
+
+def _approx_result(N, a_vec, phi0_vec, phi1_vec, count):
+    """Assemble the ``return_approx=True`` payload shared by the getA12 family.
+
+    The symmetric point keeps its historical keys; other semi-regular margins
+    now get the four-regime value of :func:`log2_A12_asymptotic`, together with
+    the regime that applies and the densities it was evaluated at.  Non-uniform
+    margins get no asymptotic value, because Theorem 3.1 does not cover them.
+    """
+    P = len(phi0_vec)
+    is_regular = _is_regular_case(N, a_vec, phi0_vec, phi1_vec)
+    result = {"count": count, "is_regular": is_regular}
+    # The core backend zero-pads a short a_vec; do the same before asking
+    # whether the constraints are semi-regular.
+    if len(a_vec) < N:
+        a_vec = list(a_vec) + [0] * (N - len(a_vec))
+
+    if is_regular:
+        approx = _compute_approximations(N, P)
+        result["log2_upper_bound"] = approx["log2_upper_bound"]
+        result["log2_approx"] = approx["log2_approx"]
+        result["case"] = 4
+    elif _is_semiregular(a_vec, phi0_vec, phi1_vec):
+        d = densities_from_constraints(N, a_vec, phi0_vec, phi1_vec)
+        try:
+            detail = log2_A12_asymptotic(
+                N, P, d["abar"], d["f0"], d["f1"], details=True
+            )
+        except ValueError as exc:
+            warnings.warn(
+                f"no asymptotic value for these densities: {exc}",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        else:
+            result["log2_approx"] = detail["log2_A12"]
+            result["case"] = detail["case"]
+            result["densities"] = (d["abar"], d["f0"], d["f1"])
+
+    if "log2_approx" in result:
+        warnings.warn(
+            "log2_approx is asymptotic: accurate when N and P are large with "
+            "bounded ratio, and a slight overestimate at small sizes.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return result
+
+
+def count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto", **kwargs):
+    """Exact :math:`|\\mathscr{A}_{12}|` with a selectable backend.
+
+    Parameters
+    ----------
+    N : int
+        Number of individuals.
+    a_vec : sequence of int
+        Length ``N``; row sums of ``A``.
+    phi0_vec, phi1_vec : sequence of int
+        Length ``P``; ancestry-specific sums at each locus.
+    method : str, optional
+        Which algorithm to use.
+
+        ``"auto"`` (default)
+            Currently ``"dp"``, which dominated the alternatives on every case
+            tested.
+        ``"dp"``
+            Dynamic program over loci, keyed on the histogram of remaining row
+            sums (:mod:`zagar.exact_dp`).
+        ``"column-sums"``
+            The Miller--Harrison style enumeration over feasible column-sum
+            vectors (:func:`getA12`).
+        ``"column-sums-parallel"``, ``"column-sums-pruning"``
+            Threaded and pruned variants of the same
+            (:func:`getA12_parallel`, :func:`getA12_pruning`).
+    **kwargs
+        Passed through to the chosen backend, e.g. ``n_threads`` for the
+        parallel variant or ``reorder_loci`` for ``"dp"``.
+
+    Returns
+    -------
+    int
+        The exact count.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not recognised.
+
+    Notes
+    -----
+    All backends return the same integer; they differ only in time and memory.
+    The two families are checked against each other in the test suite.
+
+    Examples
+    --------
+    >>> import zagar
+    >>> zagar.count_A12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1])
+    133520
+    >>> zagar.count_A12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1],
+    ...                 method="column-sums")
+    133520
+    """
+    if method == "auto":
+        method = "dp"
+    if method == "dp":
+        return count_A12_dp(N, a_vec, phi0_vec, phi1_vec, **kwargs)
+    if method == "column-sums":
+        return getA12(N, a_vec, phi0_vec, phi1_vec, **kwargs)
+    if method == "column-sums-parallel":
+        return getA12_parallel(N, a_vec, phi0_vec, phi1_vec, **kwargs)
+    if method == "column-sums-pruning":
+        return getA12_pruning(N, a_vec, phi0_vec, phi1_vec, **kwargs)
+    raise ValueError(
+        f"unknown method {method!r}; expected 'auto' or one of {_EXACT_METHODS}"
+    )
 
 
 def get_constraints(A: np.ndarray, X: np.ndarray) -> Tuple[List[int], List[int], List[int]]:
@@ -274,22 +444,7 @@ def getA12(N, a_vec, phi0_vec, phi1_vec, sort_p_desc=True, return_approx=False):
     if not return_approx:
         return count
 
-    P = len(phi0_vec)
-    is_regular = _is_regular_case(N, a_vec, phi0_vec, phi1_vec)
-
-    result = {
-        "count": count,
-        "is_regular": is_regular,
-    }
-
-    if is_regular:
-        print("Computing estimated log-counts based on saddle-point approximation.")
-        print("Note: log2_approx is good only when P and N are large with bounded ratio")
-        approx = _compute_approximations(N, P)
-        result["log2_upper_bound"] = approx["log2_upper_bound"]
-        result["log2_approx"] = approx["log2_approx"]
-
-    return result
+    return _approx_result(N, a_vec, phi0_vec, phi1_vec, count)
 
 
 def getA12_parallel(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True, return_approx=False):
@@ -360,22 +515,7 @@ def getA12_parallel(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True
     if not return_approx:
         return count
 
-    P = len(phi0_vec)
-    is_regular = _is_regular_case(N, a_vec, phi0_vec, phi1_vec)
-
-    result = {
-        "count": count,
-        "is_regular": is_regular,
-    }
-
-    if is_regular:
-        print("Computing estimated log-counts based on saddle-point approximation.")
-        print("Note: log2_approx is good only when P and N are large with bounded ratio")
-        approx = _compute_approximations(N, P)
-        result["log2_upper_bound"] = approx["log2_upper_bound"]
-        result["log2_approx"] = approx["log2_approx"]
-
-    return result
+    return _approx_result(N, a_vec, phi0_vec, phi1_vec, count)
 
 
 def getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True, return_approx=False):
@@ -449,22 +589,7 @@ def getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True,
     if not return_approx:
         return count
 
-    P = len(phi0_vec)
-    is_regular = _is_regular_case(N, a_vec, phi0_vec, phi1_vec)
-
-    result = {
-        "count": count,
-        "is_regular": is_regular,
-    }
-
-    if is_regular:
-        print("Computing estimated log-counts based on saddle-point approximation.")
-        print("Note: log2_approx is good only when P and N are large with bounded ratio")
-        approx = _compute_approximations(N, P)
-        result["log2_upper_bound"] = approx["log2_upper_bound"]
-        result["log2_approx"] = approx["log2_approx"]
-
-    return result
+    return _approx_result(N, a_vec, phi0_vec, phi1_vec, count)
 
 
 def count_matrices(p, q, sort_p_desc=False):
