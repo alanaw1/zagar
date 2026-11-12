@@ -35,44 +35,51 @@ holds 11,802 states at ``N = P = 8`` and 175,070 at ``N = P = 10``, growing by
 a factor of seven or eight per unit of ``N``.
 
 Only one layer is held at a time, so that growth is modest in absolute terms --
-the whole ``N = P = 10`` run fits in 75 MB.  What dominates peak memory is
-``cache_transitions``, because each cached entry is an entire transition table
-of a few hundred triples; see that parameter's documentation for the figures.
-It is off by default.
+the whole ``N = P = 10`` run fits in 54 MB.
 
-Measured against the column-sum enumeration in ``_core`` at the Case 1 interior
-point ``abar = 1/2``, ``f0 = f1 = 1/4``, with ``cache_transitions=False``
-(Apple M2, 16 GB; peak RSS includes a ~10 MB interpreter baseline):
+Measured at the Case 1 interior point ``abar = 1/2``, ``f0 = f1 = 1/4``, with
+``cache_transitions=False`` (Apple M2, 16 GB; peak RSS includes a ~10 MB
+interpreter baseline).  Only even ``N`` appears because ``2N/4`` has to be an
+integer for that density to be realisable at all --- at ``N = 11`` it is 5.5,
+and ``round(5.5)`` is 6, not 5:
 
-=======  ============================  ================  ================
-``N=P``  ``_core`` (Miller--Harrison)  this module, C++  this module, pure
-                                       transitions       Python
-=======  ============================  ================  ================
-4        0.014 s, 27 MB                0.000 s, 24 MB    0.001 s, 24 MB
-5        2.0 s, 492 MB                 0.004 s, 24 MB    0.016 s, 24 MB
-6        exhausts 16 GB                0.031 s, 24 MB    0.19 s, 25 MB
-7        --                            0.25 s, 25 MB     0.99 s, 27 MB
-8        --                            2.1 s, 28 MB      9.1 s, 65 MB
-9        --                            16 s, 35 MB       72 s, 174 MB
-10       --                            165 s, 75 MB      720 s, 542 MB
-=======  ============================  ================  ================
+=======  ==================  =====================  ==================
+``N=P``  ``backend="cpp"``   ``backend="python"``   no extension built
+=======  ==================  =====================  ==================
+4        0.000 s, 24 MB      0.000 s, 23 MB         0.001 s, 24 MB
+6        0.004 s, 24 MB      0.041 s, 24 MB         0.19 s, 25 MB
+8        0.44 s, 26 MB       2.2 s, 28 MB           9.1 s, 65 MB
+10       45 s, 54 MB         166 s, 65 MB           720 s, 542 MB
+=======  ==================  =====================  ==================
 
-All of these are exponential; this one simply has a much smaller base.
+For scale, the column-sum enumeration in ``_core`` takes 0.014 s at
+``N = P = 4``, 2.0 s and 492 MB at ``N = P = 5``, and exhausts 16 GB at
+``N = P = 6``.  All of these algorithms are exponential; this one simply has a
+much smaller base.
 
-The C++ enumeration (``_core.locus_transitions``) accounts for about 86% of the
-pure-Python runtime and is roughly 7x faster, so the end-to-end gain is about
-4.4x and cannot exceed 7x without moving the layer loop itself into C++: what
-remains is big-integer arithmetic and dictionary updates on the Python side.
-The port is also what keeps memory flat, since the Python version's internal
-dictionary and list of triples are a large transient at every state.
+``backend="python"`` is the driver in this module, which still calls the C++
+``_core.locus_transitions`` for each histogram; the last column is a build with
+no extension, where that enumeration runs in Python too.  The gap between the
+first two columns is the cost of the Python boundary.  ``"python"`` marshals a
+``(new_hist, s, ways)`` triple per transition --- 7.27 million of them at
+``N = P = 8``, over half of which its own prunes then discard --- and holds a
+transition table per histogram; ``"cpp"`` accumulates straight into the next
+layer and builds no table at all.  The advantage narrows as ``N`` grows (10x at
+6, 4.9x at 8, 3.7x at 10) because the enumeration itself comes to dominate.
+
+Past the table, ``N = P = 11`` at ``f0 = f1 = 5/22`` takes 7.8 min and 122 MB
+under ``"cpp"`` against 24 min under ``"python"``, and the two agree on all 404
+bits of the answer.  Time grows roughly tenfold per unit of ``N`` while memory
+grows only two- or threefold, so time is the binding constraint and ``N = 13``
+is about the practical ceiling.
 
 This point, and not ``abar = f0 = f1 = 1/2``, is the expensive one.  Setting
 ``abar = 1/2`` does maximise the number of reachable histograms, but taking
 ``f0 = f1 = 1/2`` saturates every locus: ``f0 + f1 = 1`` forces ``X == 1``
 everywhere (Case 4 of :mod:`zagar.asymptotics`), leaving each locus a single
-admissible column sum.  That is far cheaper --- ``N = P = 7`` costs 0.010 s
-there against 0.28 s here.  Skewing ``abar`` away from 1/2 likewise shrinks the
-state space.
+admissible column sum.  That is far cheaper --- at ``N = P = 7``, 0.0010 s
+against 0.034 s under ``"cpp"``.  Skewing ``abar`` away from 1/2 likewise
+shrinks the state space.
 
 Non-uniform constraints are supported.  Loci are processed in an order chosen to
 prune early, which is valid because permuting loci is a bijection on arrays that
@@ -86,10 +93,14 @@ from typing import Dict, List, Sequence, Tuple
 
 try:
     from ._core import DP_TRANSITIONS_MAX_N as _CPP_MAX_N
+    from ._core import count_A12_dp as _count_A12_dp_cpp
     from ._core import locus_transitions as _locus_transitions_cpp
 except ImportError:                     # pragma: no cover
     _locus_transitions_cpp = None       # pure-Python fallback
+    _count_A12_dp_cpp = None
     _CPP_MAX_N = 0
+
+_BACKENDS = ("auto", "cpp", "python")
 
 __all__ = ["count_A12_dp"]
 
@@ -207,6 +218,7 @@ def count_A12_dp(
     phi1_vec: Sequence[int],
     reorder_loci: bool = True,
     cache_transitions: bool = False,
+    backend: str = "auto",
 ) -> int:
     """Exact ``|A12|`` by dynamic programming over loci.
 
@@ -233,22 +245,45 @@ def count_A12_dp(
         table holds a few hundred triples.  Measured at ``abar = 1/2``,
         ``f0 = f1 = 1/4``:
 
-        =======  =========  =================  ==================
-        ``N=P``  backend    ``False``          ``True``
-        =======  =========  =================  ==================
-        8        C++        2.1 s, 28 MB       2.2 s, 598 MB
-        9        C++        16 s, 35 MB        18 s, 2883 MB
-        8        Python     9.1 s, 65 MB       7.1 s, 614 MB
-        9        Python     72 s, 174 MB       55 s, 2971 MB
-        =======  =========  =================  ==================
+        =======  ===============  ================  ==================
+        ``N=P``  locus enum.      ``False``         ``True``
+        =======  ===============  ================  ==================
+        8        C++ kernel       2.1 s, 28 MB      2.2 s, 598 MB
+        9        C++ kernel       16 s, 35 MB       18 s, 2883 MB
+        8        Python kernel    9.1 s, 65 MB      7.1 s, 614 MB
+        9        Python kernel    72 s, 174 MB      55 s, 2971 MB
+        =======  ===============  ================  ==================
 
-        With the C++ enumeration the cache is slower *and* uses two orders of
+        With the C++ kernel the cache is slower *and* uses two orders of
         magnitude more memory -- recomputing costs less than the dictionary
         lookup it saves -- so there is no reason to enable it.  It helps only
         in a build without the extension, and even there it buys about 23% of
         the time for ten to seventeen times the memory.  Kept as an option
         rather than deleted because that trade is occasionally the right one,
         but it is not the default and should not be.
+
+        This parameter concerns the *transition* enumeration, which is a
+        different axis from ``backend`` below: it applies only to
+        ``backend="python"``, since ``backend="cpp"`` builds no transition
+        table to cache.
+    backend : {"auto", "cpp", "python"}, optional
+        Which implementation of the dynamic program to run.  All three return
+        the same integer.
+
+        ``"auto"`` (default)
+            ``"cpp"`` when the compiled extension is present and ``N`` is
+            within its 64-bit multiplicity bound, otherwise ``"python"``.
+        ``"cpp"``
+            The whole layer loop in C++ (``_core.count_A12_dp``).  About 4x
+            faster than ``"python"`` here and roughly 20x faster than a build
+            with no extension at all, because no transition crosses the
+            Python boundary and no intermediate transition table is built.
+            Raises :exc:`ValueError` if the extension is missing.
+        ``"python"``
+            The driver in this module, which still uses the C++ transition
+            kernel for each histogram when it is available.  This is the
+            reference implementation: it is what ``"cpp"`` is tested against,
+            and it is what runs when ``N`` exceeds the C++ bound.
 
     Returns
     -------
@@ -269,8 +304,26 @@ def count_A12_dp(
     >>> count_A12_dp(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1])
     133520
     """
+    if backend not in _BACKENDS:
+        raise ValueError(
+            f"unknown backend {backend!r}; expected one of {_BACKENDS}"
+        )
     a_vec = _pad_a_vec(N, a_vec)
     P = _validate(N, a_vec, phi0_vec, phi1_vec)
+
+    # Validation happens above so that both backends report the same errors.
+    use_cpp = backend == "cpp" or (
+        backend == "auto" and _count_A12_dp_cpp is not None and N <= _CPP_MAX_N
+    )
+    if use_cpp:
+        if _count_A12_dp_cpp is None:
+            raise ValueError(
+                "backend='cpp' requires the compiled extension, which is not "
+                "available in this build"
+            )
+        return _count_A12_dp_cpp(N, list(a_vec), list(phi0_vec), list(phi1_vec),
+                                 reorder_loci)
+
     if (sum(a_vec) == 0 and all(x == 0 for x in phi0_vec)
             and all(x == 0 for x in phi1_vec)):
         return 1

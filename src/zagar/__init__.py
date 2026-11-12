@@ -101,8 +101,19 @@ __all__ = [
     "densities_from_constraints",
 ]
 
-#: Backends accepted by :func:`count_A12`.
+#: Algorithms accepted by :func:`count_A12`.
 _EXACT_METHODS = ("dp", "column-sums", "column-sums-parallel", "column-sums-pruning")
+
+#: Accepted spellings that map onto :data:`_EXACT_METHODS`.  The
+#: ``miller-harrison`` names are there because that is what the column-sum
+#: family is called in the literature and in this package's own docs.
+_METHOD_ALIASES = {
+    "auto": "dp",
+    "histogram-dp": "dp",
+    "miller-harrison": "column-sums",
+    "miller-harrison-parallel": "column-sums-parallel",
+    "miller-harrison-pruning": "column-sums-pruning",
+}
 
 
 def _is_regular_case(N, a_vec, phi0_vec, phi1_vec):
@@ -220,23 +231,27 @@ def count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto", **kwargs):
     phi0_vec, phi1_vec : sequence of int
         Length ``P``; ancestry-specific sums at each locus.
     method : str, optional
-        Which algorithm to use.
+        Which algorithm to use.  Two families are available, and they share no
+        code: see the Notes.
 
         ``"auto"`` (default)
             Currently ``"dp"``, which dominated the alternatives on every case
             tested.
-        ``"dp"``
+        ``"dp"`` (alias ``"histogram-dp"``)
             Dynamic program over loci, keyed on the histogram of remaining row
-            sums (:mod:`zagar.exact_dp`).
-        ``"column-sums"``
-            The Miller--Harrison style enumeration over feasible column-sum
-            vectors (:func:`getA12`).
+            sums (:mod:`zagar.exact_dp`).  Runs in C++ when the compiled
+            extension is present; pass ``backend="python"`` to force the
+            reference implementation.
+        ``"column-sums"`` (alias ``"miller-harrison"``)
+            Enumeration over feasible column-sum vectors, counting binary
+            matrices by the Miller--Harrison recursion (:func:`getA12`).
         ``"column-sums-parallel"``, ``"column-sums-pruning"``
-            Threaded and pruned variants of the same
-            (:func:`getA12_parallel`, :func:`getA12_pruning`).
+            Threaded and pruned variants of the same (:func:`getA12_parallel`,
+            :func:`getA12_pruning`), aliased ``"miller-harrison-parallel"``
+            and ``"miller-harrison-pruning"``.
     **kwargs
-        Passed through to the chosen backend, e.g. ``n_threads`` for the
-        parallel variant or ``reorder_loci`` for ``"dp"``.
+        Passed through to the chosen algorithm, e.g. ``n_threads`` for the
+        parallel variant, or ``reorder_loci`` / ``backend`` for ``"dp"``.
 
     Returns
     -------
@@ -250,8 +265,19 @@ def count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto", **kwargs):
 
     Notes
     -----
-    All backends return the same integer; they differ only in time and memory.
-    The two families are checked against each other in the test suite.
+    All methods return the same integer; they differ only in time and memory.
+    The two families are independent algorithms -- one folds the loci into a
+    histogram of remaining row sums and never enumerates a column-sum vector,
+    the other enumerates those vectors and counts matrices for each -- so
+    agreement between them is a genuine cross-check, and the test suite pins
+    it over hundreds of random instances.
+
+    The dynamic program is the faster of the two by orders of magnitude:
+    ``"column-sums"`` exhausts 16 GB at ``N = P = 6``, where ``"dp"`` needs
+    0.01 s and 24 MB.  The column-sum family is kept because
+    :func:`count_binary_matrices` is useful in its own right, because it is
+    that independent cross-check, and because :func:`getA1`, :func:`getA2`
+    and :func:`compareA1A2` build on the same machinery.
 
     Examples
     --------
@@ -261,9 +287,14 @@ def count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto", **kwargs):
     >>> zagar.count_A12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1],
     ...                 method="column-sums")
     133520
+    >>> zagar.count_A12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1],
+    ...                 method="miller-harrison")
+    133520
+    >>> zagar.count_A12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1],
+    ...                 method="dp", backend="python")
+    133520
     """
-    if method == "auto":
-        method = "dp"
+    method = _METHOD_ALIASES.get(method, method)
     if method == "dp":
         return count_A12_dp(N, a_vec, phi0_vec, phi1_vec, **kwargs)
     if method == "column-sums":
@@ -273,7 +304,8 @@ def count_A12(N, a_vec, phi0_vec, phi1_vec, method="auto", **kwargs):
     if method == "column-sums-pruning":
         return getA12_pruning(N, a_vec, phi0_vec, phi1_vec, **kwargs)
     raise ValueError(
-        f"unknown method {method!r}; expected 'auto' or one of {_EXACT_METHODS}"
+        f"unknown method {method!r}; expected one of {_EXACT_METHODS} "
+        f"or an alias from {tuple(_METHOD_ALIASES)}"
     )
 
 

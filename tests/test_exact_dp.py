@@ -259,6 +259,80 @@ def test_backends_and_cache_agree_on_the_count(cache):
     assert count_A12_dp(*PAPER_EXAMPLE, cache_transitions=cache) == PAPER_EXAMPLE_COUNT
 
 
+@pytest.mark.skipif(
+    zagar.exact_dp._count_A12_dp_cpp is None,
+    reason="built without the C++ extension",
+)
+def test_cpp_and_python_backends_agree():
+    """The whole-DP C++ backend against the Python driver, the reference.
+
+    ``backend="cpp"`` re-implements the driver -- locus ordering, the weight
+    table, the suffix bounds, all three prunes, the final key -- so this is a
+    differential test of two implementations of one algorithm, not a test of
+    one implementation twice.  It is the only thing standing between a
+    transcription slip in the C++ and a wrong count.
+    """
+    rng = random.Random(23)
+    for _ in range(250):
+        N, a, phi0, phi1 = random_instance(rng, max_N=4, max_P=3)
+        want = count_A12_dp(N, a, phi0, phi1, backend="python")
+        assert count_A12_dp(N, a, phi0, phi1, backend="cpp") == want
+    for args in [
+        PAPER_EXAMPLE,
+        (3, [0, 0, 0], [0, 0], [0, 0]),     # all-zero: empty products are 1
+        (2, [0, 0], [0], [3]),              # infeasible, no ancestry 1
+        (2, [4, 4], [1, 0], [0, 0]),        # infeasible, no ancestry 0
+        (1, [2], [0], [0]),                 # single individual
+        (2, [1], [0], [0]),                 # short a_vec, zero-padded
+        (4, [4] * 4, [2] * 4, [2] * 4),     # Case 1 interior
+        (5, [5] * 5, [2] * 5, [3] * 5),     # non-symmetric, N = P = 5
+        (6, [6] * 6, [3] * 6, [3] * 6),     # Case 1 interior, N = P = 6
+        (3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1]),   # non-uniform margins
+    ]:
+        assert (count_A12_dp(*args, backend="cpp")
+                == count_A12_dp(*args, backend="python"))
+
+
+@pytest.mark.skipif(
+    zagar.exact_dp._count_A12_dp_cpp is None,
+    reason="built without the C++ extension",
+)
+@pytest.mark.parametrize("backend", ["cpp", "python"])
+def test_reorder_loci_is_a_no_op_for_both_backends(backend):
+    """Each backend sorts loci itself, so each needs the invariant checked."""
+    rng = random.Random(29)
+    for _ in range(60):
+        N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
+        assert (count_A12_dp(N, a, phi0, phi1, backend=backend,
+                             reorder_loci=True)
+                == count_A12_dp(N, a, phi0, phi1, backend=backend,
+                                reorder_loci=False))
+
+
+def test_unknown_backend_raises():
+    with pytest.raises(ValueError, match="unknown backend"):
+        count_A12_dp(*PAPER_EXAMPLE, backend="nope")
+
+
+@pytest.mark.parametrize("backend", ["auto", "cpp", "python"])
+def test_invalid_inputs_raise_on_every_backend(backend):
+    """Validation happens before backend selection, so it must not vary.
+
+    The C++ path would otherwise be free to accept something the reference
+    rejects, or to report it differently.
+    """
+    for N, a, phi0, phi1 in [
+        (2, [1, 1, 1], [0], [0]),
+        (2, [1, 1], [0, 0], [0]),
+        (2, [9, 1], [0], [0]),
+        (2, [1, 1], [5], [0]),
+        (2, [1, 1], [3], [3]),
+        (0, [], [], []),
+    ]:
+        with pytest.raises(ValueError):
+            count_A12_dp(N, a, phi0, phi1, backend=backend)
+
+
 def test_python_fallback_gives_the_same_count(monkeypatch):
     """Forcing the pure-Python kernel must not change any answer.
 
@@ -345,8 +419,10 @@ def test_dispatcher_backends_agree():
         N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
         values = {
             m: zagar.count_A12(N, a, phi0, phi1, method=m)
-            for m in ("auto", "dp", "column-sums", "column-sums-parallel",
-                      "column-sums-pruning")
+            for m in ("auto", "dp", "histogram-dp",
+                      "column-sums", "miller-harrison",
+                      "column-sums-parallel", "miller-harrison-parallel",
+                      "column-sums-pruning", "miller-harrison-pruning")
         }
         assert len(set(values.values())) == 1, values
 
@@ -370,6 +446,9 @@ def test_dispatcher_rejects_unknown_method():
     "method,kwargs",
     [
         ("dp", {"reorder_loci": False}),
+        ("dp", {"backend": "python"}),
+        ("dp", {"backend": "cpp"}),
+        ("miller-harrison", {"sort_p_desc": False}),
         ("column-sums", {"sort_p_desc": False}),
         ("column-sums-parallel", {"n_threads": 1}),
     ],

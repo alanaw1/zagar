@@ -179,13 +179,15 @@ def test_case4_reproduces_legacy_symmetric_approximation():
         # f0 = f1 = 1/3 rather than 1/4: at N = 9, 2N * 0.25 is not an integer,
         # so a quarter-density row cannot be built here at all.
         (9, 9, 0.5, 1 / 3, 1 / 3, 248.9962, 1),
-        # The largest Case 1 point here, and the slowest to reproduce: 13 min
-        # and 546 MB, with count_A12_dp's transition cache disabled.  With the
-        # cache on it does exhaust a 16 GB machine, which is what the
-        # complexity table in exact_dp's docstring reports.  The reference
-        # suite carried this row at 330.0200; the enumerated value is
-        # 330.019726, so that was 0.0003 bits off.
+        # The reference suite carried this row at 330.0200; the enumerated
+        # value is 330.019726, so that was 0.0003 bits off.
         (10, 10, 0.5, 0.25, 0.25, 330.0197, 1),
+        # The largest exact value in this suite, and the only one produced by
+        # two independent implementations rather than one: 24 min with
+        # backend="python" and 7.8 min with backend="cpp", agreeing on all 404
+        # bits.  f0 = f1 = 5/22 because a quarter density is not representable
+        # at N = 11 -- 2N/4 = 5.5, and round(5.5) is 6, not 5.
+        (11, 11, 0.5, 5 / 22, 5 / 22, 404.0798, 1),
         (4, 4, 0.5, 0.25, 0.5, 29.9929, 2),
         (4, 8, 0.5, 0.25, 0.5, 63.3956, 2),
         (6, 6, 0.5, 0.25, 0.5, 75.2987, 2),
