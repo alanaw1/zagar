@@ -83,32 +83,122 @@ def random_instance(rng, max_N=3, max_P=2):
 
 
 # ---------------------------------------------------------------------------
-# TODO (Alan): the test functions go below.  See the checklist in the plan.
-#
 # Correctness
-#   - the manuscript value: count_A12_dp(*PAPER_EXAMPLE) == PAPER_EXAMPLE_COUNT
-#   - agreement with brute_A12 over ~120 random tiny instances
-#   - agreement with zagar.getA12 over ~120 instances up to max_N=max_P=4
-#   - non-uniform margins (the paper example already is non-uniform)
-#   - reorder_loci=True and reorder_loci=False give the same count
-#
+# ---------------------------------------------------------------------------
+
+
+def test_paper_example():
+    """The one value published with the manuscript."""
+    assert count_A12_dp(*PAPER_EXAMPLE) == PAPER_EXAMPLE_COUNT
+
+
+def test_matches_brute_force():
+    """The strongest check available: brute_A12 shares no reasoning with the DP.
+
+    It builds every array cell by cell, so it does not assume the ``C(2, e)``
+    collapse, the histogram state or any of the pruning.  A wrong generating
+    identity would show up here and nowhere else.
+    """
+    rng = random.Random(1)
+    for _ in range(120):
+        N, a, phi0, phi1 = random_instance(rng)
+        assert count_A12_dp(N, a, phi0, phi1) == brute_A12(N, a, phi0, phi1)
+
+
+def test_matches_column_sum_enumeration():
+    """The two backends are independent algorithms; they must agree exactly."""
+    rng = random.Random(7)
+    for _ in range(120):
+        N, a, phi0, phi1 = random_instance(rng, max_N=4, max_P=4)
+        assert count_A12_dp(N, a, phi0, phi1) == zagar.getA12(N, a, phi0, phi1)
+
+
+def test_non_uniform_margins():
+    """Margins need not be semi-regular; the paper example already is not."""
+    assert count_A12_dp(2, [3, 1], [1, 2], [2, 1]) == brute_A12(
+        2, [3, 1], [1, 2], [2, 1]
+    )
+    assert count_A12_dp(3, [4, 2, 0], [2, 1], [1, 3]) == brute_A12(
+        3, [4, 2, 0], [2, 1], [1, 3]
+    )
+
+
+def test_reordering_loci_does_not_change_the_count():
+    """Permuting loci is a bijection on arrays preserving the row sums.
+
+    ``reorder_loci`` is a speed heuristic, so this needs no oracle: it turns
+    the docstring's claim into something the suite enforces.
+    """
+    rng = random.Random(11)
+    for _ in range(40):
+        N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
+        assert count_A12_dp(N, a, phi0, phi1, reorder_loci=True) == count_A12_dp(
+            N, a, phi0, phi1, reorder_loci=False
+        )
+
+
+# ---------------------------------------------------------------------------
 # Edge cases
-#   - all-zero constraints -> 1
-#   - infeasible -> 0 (e.g. (2, [0,0], [0], [3]) and (2, [4,4], [1,0], [0,0]);
-#     work out for yourself why each is infeasible before asserting it)
-#   - single individual, every a in [0, 2P], against brute_A12
-#   - a short a_vec is zero-padded, and agrees with getA12 on the same input
-#   - parametrized invalid inputs raise ValueError: a_vec longer than N;
-#     phi vectors of different length; a_n > 2P; phi0 > 2N; phi0 + phi1 > 2N;
-#     N <= 0
-#
-# The count_A12 dispatcher
-#   - all four methods agree on random instances
-#   - "auto" defaults to dp; "column-sums" gives the same answer
-#   - an unknown method raises ValueError matching "unknown method"
-#   - kwargs reach the backend (e.g. method="dp", reorder_loci=False)
-#
-# End to end
-#   - the asymptotic value tracks log2 of the exact count to within 0.05 bits
-#     at (4,4,.5,.25,.25), (4,4,.5,.25,.5), (4,4,.5,.5,.5), (5,5,.4,.3,.4)
+# ---------------------------------------------------------------------------
+
+
+def test_all_zero_constraints():
+    # A is all zeros and X is all zeros: exactly one array.
+    assert count_A12_dp(3, [0, 0, 0], [0, 0], [0, 0]) == 1
+
+
+def test_infeasible_returns_zero():
+    # Every row sum is 0, so A is identically 0 and no haplotype carries
+    # ancestry 1 -- but locus 0 demands three alternative alleles on
+    # ancestry-1 haplotypes.
+    assert count_A12_dp(2, [0, 0], [0], [3]) == 0
+    # a_n = 4 = 2P, so A is identically 1 and every haplotype is ancestry 1;
+    # no ancestry-0 allele can be placed, yet phi0 asks for one.
+    assert count_A12_dp(2, [4, 4], [1, 0], [0, 0]) == 0
+
+
+def test_single_individual():
+    """With phi0 = phi1 = 0, X is forced to zero and the count is C(2P, a)."""
+    for P in (1, 2, 3):
+        for a in range(2 * P + 1):
+            phi0 = [0] * P
+            phi1 = [0] * P
+            assert count_A12_dp(1, [a], phi0, phi1) == brute_A12(1, [a], phi0, phi1)
+
+
+def test_short_a_vec_is_zero_padded():
+    """A short a_vec means the other individuals carry no ancestry-1 entries.
+
+    This matches the behaviour of the column-sum backend, which pads to N, so
+    the two remain interchangeable.  It is a compatibility contract rather than
+    a mathematical necessity, which is why it is pinned here.
+    """
+    assert count_A12_dp(2, [1], [0], [0]) == count_A12_dp(2, [1, 0], [0], [0])
+    assert zagar.getA12(5, [2, 2], [1, 1], [1, 1]) == count_A12_dp(
+        5, [2, 2], [1, 1], [1, 1]
+    )
+    assert count_A12_dp(5, [2, 2], [1, 1], [1, 1]) == count_A12_dp(
+        5, [2, 2, 0, 0, 0], [1, 1], [1, 1]
+    )
+
+
+@pytest.mark.parametrize(
+    "N,a,phi0,phi1",
+    [
+        (2, [1, 1, 1], [0], [0]),      # a_vec longer than N
+        (2, [1, 1], [0, 0], [0]),      # phi vectors differ in length
+        (2, [9, 1], [0], [0]),         # a_n > 2P
+        (2, [1, 1], [5], [0]),         # phi0 > 2N
+        (2, [1, 1], [3], [3]),         # phi0 + phi1 > 2N
+        (0, [], [], []),               # N must be positive
+    ],
+)
+def test_invalid_inputs_raise(N, a, phi0, phi1):
+    with pytest.raises(ValueError):
+        count_A12_dp(N, a, phi0, phi1)
+
+
+# ---------------------------------------------------------------------------
+# TODO (steps 3-4): the count_A12 dispatcher, and the asymptotics-vs-exact
+# end-to-end check.
 # ---------------------------------------------------------------------------
