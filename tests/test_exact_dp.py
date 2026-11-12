@@ -5,6 +5,7 @@ every admixed array at tiny sizes, against the independent column-sum
 enumeration in ``_core``, and against the one value published in the manuscript.
 """
 
+import math
 import random
 from itertools import combinations, product
 
@@ -46,8 +47,8 @@ def brute_A12(N, a_vec, phi0_vec, phi1_vec):
                 c0 = [0] * P
                 c1 = [0] * P
                 for p in range(P):
-                    for l in (0, 1):
-                        j = l * P + p
+                    for hap in (0, 1):
+                        j = hap * P + p
                         if xbits[j]:
                             (c1 if A[j] else c0)[p] += 1
                 opts.append((tuple(c0), tuple(c1)))
@@ -199,6 +200,80 @@ def test_invalid_inputs_raise(N, a, phi0, phi1):
 
 
 # ---------------------------------------------------------------------------
-# TODO (steps 3-4): the count_A12 dispatcher, and the asymptotics-vs-exact
-# end-to-end check.
+# The count_A12 dispatcher
 # ---------------------------------------------------------------------------
+
+
+def test_dispatcher_backends_agree():
+    """All backends compute the same integer; they differ only in cost."""
+    rng = random.Random(3)
+    for _ in range(25):
+        N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
+        values = {
+            m: zagar.count_A12(N, a, phi0, phi1, method=m)
+            for m in ("auto", "dp", "column-sums", "column-sums-parallel",
+                      "column-sums-pruning")
+        }
+        assert len(set(values.values())) == 1, values
+
+
+def test_dispatcher_defaults_to_dp():
+    assert zagar.count_A12(*PAPER_EXAMPLE) == PAPER_EXAMPLE_COUNT
+    assert (
+        zagar.count_A12(*PAPER_EXAMPLE, method="dp") == PAPER_EXAMPLE_COUNT
+    )
+    assert (
+        zagar.count_A12(*PAPER_EXAMPLE, method="column-sums") == PAPER_EXAMPLE_COUNT
+    )
+
+
+def test_dispatcher_rejects_unknown_method():
+    with pytest.raises(ValueError, match="unknown method"):
+        zagar.count_A12(*PAPER_EXAMPLE, method="nope")
+
+
+@pytest.mark.parametrize(
+    "method,kwargs",
+    [
+        ("dp", {"reorder_loci": False}),
+        ("column-sums", {"sort_p_desc": False}),
+        ("column-sums-parallel", {"n_threads": 1}),
+    ],
+)
+def test_dispatcher_passes_kwargs_through(method, kwargs):
+    """A backend-specific keyword must reach the backend, not raise."""
+    assert (
+        zagar.count_A12(*PAPER_EXAMPLE, method=method, **kwargs)
+        == PAPER_EXAMPLE_COUNT
+    )
+
+
+# ---------------------------------------------------------------------------
+# Asymptotics against exact counts, end to end
+#
+# Distinct from test_close_to_exact_counts in test_asymptotics.py: there the
+# exact values are hard-coded, here they are enumerated, so this also exercises
+# the round trip from densities to integer constraints and back.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "N,P,abar,f0,f1",
+    [
+        (4, 4, 0.5, 0.25, 0.25),
+        (4, 4, 0.5, 0.25, 0.5),
+        (4, 4, 0.5, 0.5, 0.5),
+        (5, 5, 0.4, 0.3, 0.4),
+    ],
+)
+def test_asymptotic_tracks_exact_count(N, P, abar, f0, f1):
+    a = [round(2 * P * abar)] * N
+    phi0 = [round(2 * N * f0)] * P
+    phi1 = [round(2 * N * f1)] * P
+    exact = count_A12_dp(N, a, phi0, phi1)
+    assert exact > 0
+    # The constraints we built must be the ones the densities describe.
+    d = zagar.densities_from_constraints(N, a, phi0, phi1)
+    assert (d["abar"], d["f0"], d["f1"]) == pytest.approx((abar, f0, f1))
+    approx = zagar.log2_A12_asymptotic(N, P, abar, f0, f1)
+    assert approx - math.log2(exact) == pytest.approx(0.0, abs=0.05)

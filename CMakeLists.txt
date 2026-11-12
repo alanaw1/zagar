@@ -112,8 +112,14 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(_core PRIVATE /O2)
 endif()
 
-# Install the module into the zagar package
+# Install the compiled extension into the zagar package.
 install(TARGETS _core DESTINATION zagar)
 
-# Install Python files
-install(FILES src/zagar/__init__.py DESTINATION zagar)
+# The pure-Python modules are NOT installed from here.  scikit-build-core's
+# wheel.packages = ["src/zagar"] already ships every .py file in the package,
+# and installing __init__.py from CMake as well created a real
+# site-packages/zagar/ directory that shadowed the editable redirect: an
+# editable install served __init__.py from the stale copy while serving
+# asymptotics.py and exact_dp.py from src/, so edits to __init__.py silently
+# had no effect until the next pip install.  Adding the new modules to this
+# list would reintroduce the same trap, so the list is gone instead.

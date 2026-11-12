@@ -1,5 +1,7 @@
 """Tests for the zagar package."""
 
+import warnings
+
 import pytest
 import numpy as np
 import zagar
@@ -127,6 +129,41 @@ class TestGetA12Parallel:
         serial = zagar.getA12(N, a_vec, phi0_vec, phi1_vec)
         single = zagar.getA12_parallel(N, a_vec, phi0_vec, phi1_vec, n_threads=1)
         assert serial == single
+
+
+class TestGetA12Pruning:
+    """Tests for getA12_pruning, which had no dedicated tests before 0.2.0.
+
+    It was exported and documented but only ever exercised indirectly, so a
+    regression in the pruning or symmetry logic would not have been caught.
+    """
+
+    def test_matches_serial(self):
+        N, a_vec, phi0_vec, phi1_vec = 5, [2, 2], [1, 1], [1, 1]
+        serial = zagar.getA12(N, a_vec, phi0_vec, phi1_vec)
+        pruned = zagar.getA12_pruning(N, a_vec, phi0_vec, phi1_vec)
+        assert serial == pruned
+
+    def test_explicit_threads(self):
+        result = zagar.getA12_pruning(
+            N=5, a_vec=[2, 2], phi0_vec=[1, 1], phi1_vec=[1, 1], n_threads=2
+        )
+        assert isinstance(result, int)
+
+    def test_single_thread(self):
+        N, a_vec, phi0_vec, phi1_vec = 5, [2, 2], [1, 1], [1, 1]
+        serial = zagar.getA12(N, a_vec, phi0_vec, phi1_vec)
+        single = zagar.getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads=1)
+        assert serial == single
+
+    def test_n4_p4(self):
+        N = P = 4
+        assert zagar.getA12_pruning(
+            N=N, a_vec=[P] * N, phi0_vec=[N] * P, phi1_vec=[N] * P
+        ) == 824410
+
+    def test_infeasible_returns_zero(self):
+        assert zagar.getA12_pruning(2, [0, 0], [0], [3]) == 0
 
 
 class TestModuleAttributes:
@@ -343,17 +380,20 @@ class TestGetA12Approximation:
     def test_regular_case_detected(self):
         """Test that regular case is correctly detected."""
         N, P = 4, 4
-        result = zagar.getA12(
-            N=N,
-            a_vec=[P] * N,
-            phi0_vec=[N] * P,
-            phi1_vec=[N] * P,
-            return_approx=True
-        )
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            result = zagar.getA12(
+                N=N,
+                a_vec=[P] * N,
+                phi0_vec=[N] * P,
+                phi1_vec=[N] * P,
+                return_approx=True
+            )
         assert result["is_regular"] is True
         assert "count" in result
         assert "log2_upper_bound" in result
         assert "log2_approx" in result
+        # New in 0.2.0: the symmetric point is Case 4 of Theorem 3.1.
+        assert result["case"] == 4
 
     def test_non_regular_case_detected(self):
         """Test that non-regular case is correctly detected."""
@@ -379,13 +419,14 @@ class TestGetA12Approximation:
         """Test that approximation values are reasonable."""
         import math
         N, P = 4, 4
-        result = zagar.getA12(
-            N=N,
-            a_vec=[P] * N,
-            phi0_vec=[N] * P,
-            phi1_vec=[N] * P,
-            return_approx=True
-        )
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            result = zagar.getA12(
+                N=N,
+                a_vec=[P] * N,
+                phi0_vec=[N] * P,
+                phi1_vec=[N] * P,
+                return_approx=True
+            )
         exact_log2 = math.log2(result["count"])
         # Upper bound should be >= exact
         assert result["log2_upper_bound"] >= exact_log2 
@@ -396,8 +437,47 @@ class TestGetA12Approximation:
         """Test that count in approx mode matches non-approx mode."""
         N, P = 6, 6
         non_approx = zagar.getA12(N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P)
-        approx = zagar.getA12(N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P, return_approx=True)
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            approx = zagar.getA12(
+                N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P,
+                return_approx=True
+            )
         assert approx["count"] == non_approx
+
+    def test_semiregular_but_not_symmetric_gets_an_approximation(self):
+        """New in 0.2.0: Theorem 3.1 covers every semi-regular margin.
+
+        In 0.1.0 this returned only the count, because the approximation was
+        available at the symmetric point alone.
+        """
+        import math
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            result = zagar.getA12(4, [4]*4, [2]*4, [2]*4, return_approx=True)
+        assert result["is_regular"] is False
+        assert result["case"] == 1
+        assert result["densities"] == (0.5, 0.25, 0.25)
+        # The symmetric-point-only upper bound does not apply off that point.
+        assert "log2_upper_bound" not in result
+        err = result["log2_approx"] - math.log2(result["count"])
+        assert 0 < err < 0.04
+
+    def test_non_uniform_margins_get_no_approximation_and_no_warning(self):
+        """Theorem 3.1 does not cover non-uniform margins, so stay silent."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")       # any warning becomes a failure
+            result = zagar.getA12(3, [6, 1, 7], [2, 0, 2, 1], [1, 3, 4, 1],
+                                  return_approx=True)
+        assert result["count"] == 133520
+        assert "log2_approx" not in result
+        assert "case" not in result
+
+    def test_all_three_variants_return_identical_payloads(self):
+        """getA12, getA12_parallel and getA12_pruning share _approx_result."""
+        payloads = []
+        for fn in (zagar.getA12, zagar.getA12_parallel, zagar.getA12_pruning):
+            with pytest.warns(RuntimeWarning, match="asymptotic"):
+                payloads.append(fn(4, [4]*4, [2]*4, [2]*4, return_approx=True))
+        assert payloads[0] == payloads[1] == payloads[2]
 
 
 class TestGetA12ParallelApproximation:
@@ -406,13 +486,14 @@ class TestGetA12ParallelApproximation:
     def test_regular_case_detected(self):
         """Test that regular case is correctly detected in parallel."""
         N, P = 4, 4
-        result = zagar.getA12_parallel(
-            N=N,
-            a_vec=[P] * N,
-            phi0_vec=[N] * P,
-            phi1_vec=[N] * P,
-            return_approx=True
-        )
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            result = zagar.getA12_parallel(
+                N=N,
+                a_vec=[P] * N,
+                phi0_vec=[N] * P,
+                phi1_vec=[N] * P,
+                return_approx=True
+            )
         assert result["is_regular"] is True
         assert "count" in result
         assert "log2_upper_bound" in result
@@ -440,8 +521,16 @@ class TestGetA12ParallelApproximation:
     def test_parallel_matches_serial_with_approx(self):
         """Test that parallel with approx matches serial with approx."""
         N, P = 6, 6
-        serial = zagar.getA12(N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P, return_approx=True)
-        parallel = zagar.getA12_parallel(N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P, return_approx=True)
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            serial = zagar.getA12(
+                N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P,
+                return_approx=True
+            )
+        with pytest.warns(RuntimeWarning, match="asymptotic"):
+            parallel = zagar.getA12_parallel(
+                N=N, a_vec=[P]*N, phi0_vec=[N]*P, phi1_vec=[N]*P,
+                return_approx=True
+            )
         assert serial["count"] == parallel["count"]
         assert serial["is_regular"] == parallel["is_regular"]
         assert abs(serial["log2_upper_bound"] - parallel["log2_upper_bound"]) < 1e-10
