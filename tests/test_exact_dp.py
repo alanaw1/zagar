@@ -138,6 +138,40 @@ def test_reordering_loci_does_not_change_the_count():
         )
 
 
+def test_complement_bijection_preserves_the_count():
+    """``A -> 1 - A`` is a bijection on admixed arrays, so it cannot change
+    ``|A12|``.
+
+    Complementing ``A`` sends row sum ``a_n`` to ``2P - a_n`` and exchanges the
+    cell types ``(1,1) <-> (0,1)`` and ``(1,0) <-> (0,0)``, so ``phi0`` and
+    ``phi1`` swap while ``X`` is untouched.  Nothing here requires semi-regular
+    margins, which is why the paper example is included alongside the random
+    draws.
+
+    ``zagar.asymptotics`` leans on this identity -- ``_case3`` is implemented
+    as ``_case2`` at the image point -- so verifying it against enumeration is
+    what keeps the invariance tests in ``test_asymptotics.py`` from resting on
+    an unchecked claim.
+    """
+    N, a, phi0, phi1 = PAPER_EXAMPLE
+    P = len(phi0)
+    assert (
+        count_A12_dp(N, [2 * P - v for v in a], phi1, phi0) == PAPER_EXAMPLE_COUNT
+    )
+
+    rng = random.Random(5)
+    nonzero = 0
+    for _ in range(200):
+        N, a, phi0, phi1 = random_instance(rng, max_N=3, max_P=3)
+        P = len(phi0)
+        count = count_A12_dp(N, a, phi0, phi1)
+        assert count == count_A12_dp(N, [2 * P - v for v in a], phi1, phi0)
+        nonzero += count > 0
+    # Both sides are zero on an infeasible instance, so a draw that is mostly
+    # infeasible would satisfy the identity without exercising it.
+    assert nonzero > 20, f"only {nonzero} feasible draws; the test is weak"
+
+
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------

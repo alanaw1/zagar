@@ -1,10 +1,28 @@
 """Tests for zagar.asymptotics (Theorem 3.1, all four regimes).
 
-The main correctness check compares the closed-form correction terms used in
-``zagar.asymptotics`` against the expanded polynomials of the reference R
-implementation (``four_cases_freeze_101626.R``), which were derived
-independently.  Agreement to floating-point precision across the parameter
-space is strong evidence that neither has a transcription error.
+Correctness rests on three oracles, none of which needs anything outside this
+package:
+
+* **Exact counts.**  ``zagar.exact_dp`` enumerates ``|A12|`` directly, so
+  :func:`test_close_to_exact_counts` is what ties the expansion to the
+  quantity it claims to approximate.  It is the only oracle here that could
+  notice the formula describing a different object altogether.
+* **The complement bijection.**  ``A -> 1 - A`` leaves ``|A12|`` unchanged and
+  sends ``(abar, f0, f1)`` to ``(1 - abar, f1, f0)``, so the expansion must be
+  invariant under it exactly rather than asymptotically.  The bijection itself
+  is checked against enumeration by
+  ``test_complement_bijection_preserves_the_count`` in ``test_exact_dp.py``,
+  so the invariance tests below do not rest on an unchecked claim.
+* **The 0.1.0 symmetric formula.**  Case 4 at ``abar = 1/2`` must reproduce
+  what ``getA12(return_approx=True)`` published before this release.
+
+During development the closed forms were also compared against the expanded
+polynomials of the reference R derivation (``four_cases_freeze_101626.R``) over
+several thousand random points in every regime, agreeing to 1e-12 relative.
+That was a one-time check on the transcription and is deliberately not part of
+this suite: the R script is not distributed with the package, so nobody
+installing ``zagar`` could reproduce it, and a failure years from now would be
+undebuggable.  It is preserved in the history at commit 88f3508.
 """
 
 import math
@@ -23,210 +41,92 @@ L2E = math.log2(math.e)
 
 
 # ---------------------------------------------------------------------------
-# Reference implementation: literal port of the R script's expanded polynomials
+# Invariance under the complement bijection
 #
-# Nothing below is meant to be readable.  It is a transcription, kept in the
-# shape the R source had it, so that a disagreement with zagar.asymptotics
-# points at one implementation or the other rather than at a paraphrase made on
-# the way in.  ``rho`` is the R script's name for ``abar``.
+# Replacing A by 1 - A is a bijection on admixed arrays: row sums go from a_n
+# to 2P - a_n, the cell types (1,1) and (0,1) are exchanged along with (1,0)
+# and (0,0), and X is untouched.  So it maps (abar, f0, f1) to
+# (1 - abar, f1, f0) and preserves the count exactly.
+#
+# Every term of _K_case1 is built from alpha, {p0, pt} and {f0, f1} in
+# combinations this map permutes, so it is a real constraint on the correction:
+# a slip that breaks that structure shows up here.  It cannot see a slip that
+# preserves it -- a mis-scaled denominator, say -- which is what the exact
+# counts and the golden table are for.
 # ---------------------------------------------------------------------------
 
 
-def _H(*p):
-    return -sum(x * math.log2(x) for x in p if x > 0)
+def test_complement_invariance_in_the_interior():
+    """Case 1 is where this bites, since all four cell types are present.
 
-
-def ref_case1(N, P, rho, f0, f1):
-    term_1 = 2 * N * P * _H(1 - rho - f0, rho - f1, f1, f0)
-    term_2 = (
-        -(N - 1) * 0.5 * math.log2(rho * (1 - rho))
-        - P * 0.5 * math.log2(f0 * f1)
-        - (P - 1) * 0.5 * math.log2(1 - f0 - f1)
-        - 0.5 * math.log2((1 - rho - f0) * (rho - f1))
-        - ((N + 2 * P) / 2) * math.log2(math.pi)
-        - N * 0.5 * math.log2(P)
-        - P * math.log2(N)
-        - (N + 2 * P)
-    )
-    coeff_N2 = (
-        f0**3*f1**2*rho**2 - f0**3*f1**2*rho + f0**3*f1**2
-        - f0**3*f1*rho**3 + f0**3*f1*rho**2 - f0**3*f1*rho
-        + f0**2*f1**3*rho**2 - f0**2*f1**3*rho + f0**2*f1**3
-        - 2*f0**2*f1**2*rho**2 + 2*f0**2*f1**2*rho - 2*f0**2*f1**2
-        - f0**2*f1*rho**4 + 3*f0**2*f1*rho**3 - 3*f0**2*f1*rho**2 + 2*f0**2*f1*rho
-        + f0*f1**3*rho**3 - 2*f0*f1**3*rho**2 + 2*f0*f1**3*rho - f0*f1**3
-        - f0*f1**2*rho**4 + f0*f1**2*rho**3 - f0*f1**2*rho + f0*f1**2
-        + f0*f1*rho**4 - 2*f0*f1*rho**3 + 2*f0*f1*rho**2 - f0*f1*rho
-    )
-    coeff_NP = (
-        6*f0**3*f1**3 - 6*f0**3*f1**2*rho**2 - 6*f0**3*f1**2*rho
-        + 6*f0**3*f1*rho**3
-        - 6*f0**2*f1**3*rho**2 + 18*f0**2*f1**3*rho - 12*f0**2*f1**3
-        - 12*f0**2*f1**2*rho**2 + 12*f0**2*f1**2*rho
-        + 6*f0**2*f1*rho**4 - 6*f0**2*f1*rho**3
-        - 6*f0*f1**3*rho**3 + 18*f0*f1**3*rho**2 - 18*f0*f1**3*rho + 6*f0*f1**3
-        + 6*f0*f1**2*rho**4 - 18*f0*f1**2*rho**3 + 18*f0*f1**2*rho**2 - 6*f0*f1**2*rho
-    )
-    coeff_P2 = (
-        f0**3*f1**2*rho**2 - f0**3*f1**2*rho
-        - f0**3*f1*rho**3 + f0**3*f1*rho
-        + f0**3*rho**3 - f0**3*rho**2
-        + f0**2*f1**3*rho**2 - f0**2*f1**3*rho
-        - 3*f0**2*f1**2*rho**2 + 3*f0**2*f1**2*rho
-        - f0**2*f1*rho**4 + 3*f0**2*f1*rho**3 - 2*f0**2*f1*rho
-        + f0**2*rho**4 - 3*f0**2*rho**3 + 2*f0**2*rho**2
-        + f0*f1**3*rho**3 - 3*f0*f1**3*rho**2 + 2*f0*f1**3*rho
-        - f0*f1**2*rho**4 + f0*f1**2*rho**3 + 3*f0*f1**2*rho**2 - 3*f0*f1**2*rho
-        + 2*f0*f1*rho**4 - 4*f0*f1*rho**3 + f0*f1*rho**2 + f0*f1*rho
-        - f0*rho**4 + 2*f0*rho**3 - f0*rho**2
-        - f1**3*rho**3 + 2*f1**3*rho**2 - f1**3*rho
-        + f1**2*rho**4 - f1**2*rho**3 - f1**2*rho**2 + f1**2*rho
-        - f1*rho**4 + 2*f1*rho**3 - f1*rho**2
-    )
-    coeff_const = (
-        6*f0**3*f1**3 - 7*f0**3*f1**2*rho**2 - 5*f0**3*f1**2*rho - f0**3*f1**2
-        + 7*f0**3*f1*rho**3
-        - 7*f0**2*f1**3*rho**2 + 19*f0**2*f1**3*rho - 13*f0**2*f1**3
-        - 9*f0**2*f1**2*rho**2 + 9*f0**2*f1**2*rho + 2*f0**2*f1**2
-        + 7*f0**2*f1*rho**4 - 8*f0**2*f1*rho**3
-        - 7*f0*f1**3*rho**3 + 21*f0*f1**3*rho**2 - 21*f0*f1**3*rho + 7*f0*f1**3
-        + 7*f0*f1**2*rho**4 - 20*f0*f1**2*rho**3 + 18*f0*f1**2*rho**2
-        - 4*f0*f1**2*rho - f0*f1**2
-    )
-    # In the R source coeff_N and coeff_P are both -coeff_NP.
-    num = (
-        N**2 * coeff_N2 + N * P * coeff_NP - N * coeff_NP
-        + P**2 * coeff_P2 - P * coeff_NP + coeff_const
-    )
-    den = 24*N*P*f0*f1*rho*(f1 - rho)*(rho - 1)*(f0 + f1 - 1)*(f0 + rho - 1)
-    return term_1 + term_2 + (num / den) * L2E
-
-
-def ref_case2(N, P, rho, f0):
-    term1 = 2 * N * P * _H(rho, f0, 1 - rho - f0)
-    term2 = (
-        -(N - 1) * 0.5 * math.log2(P)
-        - (2 * P - 1) * 0.5 * math.log2(N)
-        - (N - 1) * 0.5 * math.log2(rho * (1 - rho))
-        - P * 0.5 * math.log2(f0 * rho * (1 - rho - f0))
-        - (N + 2 * P - 1) * 0.5 * math.log2(math.pi)
-        - (N + 2 * P - 1)
-    )
-    num = (
-        N**2*f0**2*rho**2 - N**2*f0**2*rho + N**2*f0**2 + N**2*f0*rho**3
-        - 2*N**2*f0*rho**2 + 2*N**2*f0*rho - N**2*f0 - 6*N*P*f0**2*rho**2
-        + 6*N*P*f0**2*rho - 6*N*P*f0*rho**3 + 12*N*P*f0*rho**2 - 6*N*P*f0*rho
-        + 6*N*f0**2*rho**2 - 6*N*f0**2*rho + 6*N*f0*rho**3 - 12*N*f0*rho**2
-        + 6*N*f0*rho + P**2*f0**2*rho**2 - 2*P**2*f0**2*rho + P**2*f0**2
-        + P**2*f0*rho**3 - 3*P**2*f0*rho**2 + 3*P**2*f0*rho - P**2*f0
-        - P**2*rho**3 + 2*P**2*rho**2 - P**2*rho + 6*P*f0**2*rho**2
-        - 6*P*f0**2*rho + 6*P*f0*rho**3 - 12*P*f0*rho**2 + 6*P*f0*rho
-        - 7*f0**2*rho**2 + 7*f0**2*rho - f0**2 - 7*f0*rho**3 + 14*f0*rho**2
-        - 8*f0*rho + f0
-    )
-    den = 24 * N * P * f0 * rho * (1 - rho) * (1 - rho - f0)
-    return term1 + term2 + (num / den) * L2E
-
-
-def ref_case4(N, P, rho):
-    term1 = 2 * N * P * _H(rho, 1 - rho)
-    term2 = (
-        -(N - 1) * 0.5 * math.log2(P)
-        - (P - 1) * 0.5 * math.log2(N)
-        - (N + P - 1) * 0.5 * math.log2(rho * (1 - rho))
-        - (N + P - 1) * 0.5 * math.log2(math.pi)
-        - (N + P - 1)
-    )
-    e4 = (6*rho**2 - 6*rho + 1) * (N + P - 1)**2 / (16*N*P*rho*(1 - rho)) * L2E
-    h3 = (
-        -((2*rho - 1)**2)
-        * (5*N**2 + 6*N*P - 6*N + 5*P**2 - 6*P + 1)
-        / (48*N*P*rho*(1 - rho))
-        * L2E
-    )
-    return term1 + term2 + e4 + h3
-
-
-# ---------------------------------------------------------------------------
-# Agreement with the reference polynomials
-#
-# This is the real correctness proof for the closed forms.  Each test draws
-# random (N, P) and random densities strictly inside one regime, and compares
-# against the independently derived expanded polynomial at rel=1e-12 -- loose
-# enough to absorb the different operation grouping, tight enough that a wrong
-# coefficient cannot hide.
-#
-# The small slacks (0.02, 0.06) keep draws away from the regime boundaries,
-# where classify_case would correctly pick a different case and the comparison
-# against the wrong ref_ function would fail for reasons of the test's own
-# making.  Because those slacks mean draws can be rejected, each filtered test
-# counts its iterations and asserts the loop actually ran.
-# ---------------------------------------------------------------------------
-
-
-def test_case1_matches_reference():
-    rng = random.Random(0)
+    H, log2 Delta, D and K must each be invariant, and the tolerance is set
+    about twenty times the observed worst case (5e-16 over these draws) so
+    that it measures the formula rather than the floating-point noise.
+    """
+    rng = random.Random(17)
     checked = 0
-    for _ in range(600):
+    for _ in range(400):
         N, P = rng.randint(2, 400), rng.randint(2, 400)
         f0, f1 = rng.uniform(0.02, 0.45), rng.uniform(0.02, 0.45)
         if (1 - f0) - f1 < 0.06:
             continue
         abar = rng.uniform(f1 + 0.02, 1 - f0 - 0.02)
         assert classify_case(abar, f0, f1) == 1
+        assert classify_case(1 - abar, f1, f0) == 1
         assert log2_A12_asymptotic(N, P, abar, f0, f1) == pytest.approx(
-            ref_case1(N, P, abar, f0, f1), rel=1e-12
+            log2_A12_asymptotic(N, P, 1 - abar, f1, f0), rel=1e-14
         )
         checked += 1
     assert checked > 0, "every draw was filtered; the test proved nothing"
 
 
-def test_case2_matches_reference():
-    rng = random.Random(1)
+def test_complement_invariance_on_the_case4_edge():
+    """On the doubly degenerate edge the image is again a Case 4 point.
+
+    Independent of the test above: Case 4 has its own correction term, which
+    shares no code with Case 1's.
+    """
+    rng = random.Random(19)
+    for _ in range(200):
+        N, P = rng.randint(2, 400), rng.randint(2, 400)
+        abar = rng.uniform(0.05, 0.95)
+        assert classify_case(abar, 1 - abar, abar) == 4
+        assert classify_case(1 - abar, abar, 1 - abar) == 4
+        assert log2_A12_asymptotic(N, P, abar, 1 - abar, abar) == pytest.approx(
+            log2_A12_asymptotic(N, P, 1 - abar, abar, 1 - abar), rel=1e-14
+        )
+
+
+def test_complement_exchanges_case2_and_case3():
+    """A structural guard, not a check on the arithmetic -- deliberately so.
+
+    ``_case3`` is implemented as ``_case2`` evaluated at the image point, so
+    the value assertion below is true by construction and cannot fail today.
+    What it does pin is the classification: the complement must exchange the
+    two faces.  If Case 3 is ever given an implementation of its own, this
+    stops being tautological and becomes the test of it -- which is why it is
+    written now, with the circularity stated rather than hidden.
+    """
+    rng = random.Random(23)
     checked = 0
-    for _ in range(300):
+    for _ in range(200):
         N, P = rng.randint(2, 400), rng.randint(2, 400)
         abar = rng.uniform(0.05, 0.6)
         f0 = rng.uniform(0.02, 0.9 - abar)
         if 1 - abar - f0 <= 0.02:
             continue
         assert classify_case(abar, f0, abar) == 2
+        assert classify_case(1 - abar, abar, f0) == 3
         assert log2_A12_asymptotic(N, P, abar, f0, abar) == pytest.approx(
-            ref_case2(N, P, abar, f0), rel=1e-12
+            log2_A12_asymptotic(N, P, 1 - abar, abar, f0), rel=1e-14
         )
         checked += 1
     assert checked > 0, "every draw was filtered; the test proved nothing"
 
 
-def test_case3_matches_reference_through_the_bijection():
-    """There is no ref_case3; Case 3 is checked through A -> 1 - A.
-
-    The bijection sends (abar, f0, f1) to (1 - abar, f1, f0), so a Case 3
-    point must agree with ref_case2 evaluated at (1 - abar, f1).  Asserting
-    the classification first matters: without it, a bug that routed every
-    point to Case 2 would leave this test passing.
-    """
-    rng = random.Random(2)
-    for _ in range(300):
-        N, P = rng.randint(2, 400), rng.randint(2, 400)
-        abar = rng.uniform(0.4, 0.95)
-        f0 = 1 - abar
-        f1 = rng.uniform(0.02, abar - 0.02)
-        assert classify_case(abar, f0, f1) == 3
-        assert log2_A12_asymptotic(N, P, abar, f0, f1) == pytest.approx(
-            ref_case2(N, P, 1 - abar, f1), rel=1e-12
-        )
-
-
-def test_case4_matches_reference():
-    rng = random.Random(3)
-    for _ in range(300):
-        N, P = rng.randint(2, 400), rng.randint(2, 400)
-        abar = rng.uniform(0.05, 0.95)
-        assert classify_case(abar, 1 - abar, abar) == 4
-        assert log2_A12_asymptotic(N, P, abar, 1 - abar, abar) == pytest.approx(
-            ref_case4(N, P, abar), rel=1e-12
-        )
+# ---------------------------------------------------------------------------
+# Backward compatibility with the 0.1.0 published formula
+# ---------------------------------------------------------------------------
 
 
 def test_case4_reproduces_legacy_symmetric_approximation():
@@ -249,9 +149,19 @@ def test_case4_reproduces_legacy_symmetric_approximation():
 # ---------------------------------------------------------------------------
 # Agreement with exact counts
 #
-# Steps above prove exact_dp is right and that the closed forms match the R
-# derivation.  Both could hold while the expansion described a different
-# quantity; this is the test that connects the two.
+# The oracle that connects the expansion to the thing it approximates.  The
+# invariance tests above and the golden table below could both pass while the
+# formula described a different quantity; this is the one that would not.
+#
+# Every value was produced by count_A12_dp from integer constraints built with
+# exact rational arithmetic, and checked to round-trip back through
+# densities_from_constraints to the densities in the row.  That round trip is
+# not optional: round(2 * 9 * 0.25) is 4, not 5, so the obvious way of writing
+# a row silently enumerates a different parameter point.
+#
+# Case 1 is the expensive regime -- N = P = 9 takes 47 s and 2.5 GiB, and
+# N = P = 10 exceeds 16 GiB -- while the degenerate regimes are cheap, which is
+# why cases 2, 3 and 4 reach further.
 # ---------------------------------------------------------------------------
 
 
@@ -262,18 +172,28 @@ def test_case4_reproduces_legacy_symmetric_approximation():
         (4, 4, 0.375, 0.25, 0.25, 41.0235, 1),
         (4, 6, 1 / 3, 0.25, 0.25, 60.2523, 1),
         (4, 6, 0.5, 0.25, 0.25, 68.0568, 1),
-        # The one row not independently re-derived: the exact count at
-        # N = P = 10 in Case 1 exceeds 16 GB in count_A12_dp, so this oracle
-        # is carried over from the reference suite on trust.  The implied
-        # error, +0.0094 bits, fits the trend of its neighbours.
-        (10, 10, 0.5, 0.25, 0.25, 330.0200, 1),
+        (6, 6, 0.5, 0.25, 0.25, 108.5082, 1),
+        (8, 8, 0.5, 0.25, 0.25, 203.8089, 1),
+        # f0 = f1 = 1/3 rather than 1/4: at N = 9, 2N * 0.25 is not an integer,
+        # so a quarter-density row cannot be built here at all.
+        (9, 9, 0.5, 1 / 3, 1 / 3, 248.9962, 1),
         (4, 4, 0.5, 0.25, 0.5, 29.9929, 2),
         (4, 8, 0.5, 0.25, 0.5, 63.3956, 2),
+        (6, 6, 0.5, 0.25, 0.5, 75.2987, 2),
+        (8, 8, 0.5, 0.25, 0.5, 142.9976, 2),
+        (5, 5, 0.4, 0.3, 0.4, 53.0782, 2),
         (6, 6, 0.5, 0.5, 1 / 6, 72.8085, 3),
+        (6, 8, 0.5, 0.5, 0.25, 102.6406, 3),
+        # Same count as the (8, 8) Case 2 row above, because the two points are
+        # complement images of each other.  The bijection is visible in the
+        # oracle data, not only in the formula.
+        (8, 8, 0.5, 0.5, 0.25, 142.9976, 3),
         (4, 4, 0.5, 0.5, 0.5, 19.6530, 4),
         (4, 4, 0.25, 0.75, 0.25, 14.8899, 4),
         (6, 6, 0.5, 0.5, 0.5, 49.3671, 4),
         (8, 8, 0.25, 0.75, 0.25, 72.7581, 4),
+        (10, 10, 0.5, 0.5, 0.5, 153.7482, 4),
+        (12, 12, 0.25, 0.75, 0.25, 179.1586, 4),
     ],
 )
 def test_close_to_exact_counts(N, P, abar, f0, f1, exact_log2, case):
@@ -281,12 +201,58 @@ def test_close_to_exact_counts(N, P, abar, f0, f1, exact_log2, case):
 
     The lower bound is the interesting half: the expansion must *over*estimate
     at finite size, so a sign error would pass a two-sided bound.  0.04 is
-    close to binding -- at (4, 4, 0.25, 0.75, 0.25) the error is +0.0358.
+    close to binding -- at (4, 4, 0.25, 0.75, 0.25) the error is +0.0358,
+    the largest over all 21 rows.
     """
     got = log2_A12_asymptotic(N, P, abar, f0, f1, details=True)
     assert got["case"] == case
     err = got["log2_A12"] - exact_log2
     assert 0 < err < 0.04, f"error {err:+.4f} bits outside the expected band"
+
+
+# ---------------------------------------------------------------------------
+# Golden values
+#
+# Regression, not correctness.  These are this implementation's own output,
+# recorded once it had passed everything else in this file and the one-time
+# comparison against the reference R derivation described in the module
+# docstring.  They exist to make any later change to the closed forms visible,
+# including changes far too small for the 0.04-bit band above to notice.
+#
+# A failure here means the output moved.  It does not by itself mean the output
+# became wrong, and the right response is to find out which -- starting with
+# the exact-count and invariance tests, which do carry mathematical content.
+#
+# rel=1e-12 rather than something tighter so the table survives a different
+# libm or a reordered sum.  It is still four orders of magnitude finer than the
+# smallest coefficient slip worth worrying about: the least consequential
+# mutation probed while designing this table moved a value by 0.002 bits, or
+# 2e-8 relative at these magnitudes.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "N,P,abar,f0,f1,expected",
+    [
+        (5, 5, 0.5, 0.25, 0.25, 72.35534171838236),
+        (20, 30, 0.5, 0.25, 0.25, 2169.6157555414584),
+        (7, 13, 0.4, 0.3, 0.2, 288.31588441477317),
+        (200, 150, 0.6, 0.2, 0.1, 103542.56063238299),
+        (5, 5, 0.4, 0.3, 0.4, 53.09747014490303),
+        (20, 30, 0.5, 0.25, 0.5, 1574.3909047061406),
+        (150, 200, 0.3, 0.5, 0.3, 86786.9204012328),
+        (30, 20, 0.7, 0.3, 0.2, 1580.4335862541614),
+        (6, 6, 0.5, 0.5, 1 / 6, 72.82408957892738),
+        (100, 80, 0.8, 0.2, 0.5, 22785.644738424107),
+        (4, 4, 0.5, 0.5, 0.5, 19.66748185150658),
+        (20, 20, 0.3, 0.7, 0.3, 594.8397008412535),
+        (100, 80, 0.25, 0.75, 0.25, 12293.532615087332),
+    ],
+)
+def test_golden_values(N, P, abar, f0, f1, expected):
+    assert log2_A12_asymptotic(N, P, abar, f0, f1) == pytest.approx(
+        expected, rel=1e-12
+    )
 
 
 # ---------------------------------------------------------------------------
