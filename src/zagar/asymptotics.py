@@ -162,13 +162,18 @@ def entropy_bits(*p: float) -> float:
     1.0
     >>> entropy_bits(0.25, 0.25, 0.25, 0.25)
     2.0
+    >>> entropy_bits(1.0, 0.0)          # the 0 log 0 = 0 convention
+    0.0
     """
     total = math.fsum(p)
     if not _near(total, 1.0):
         raise ValueError(f"Components must sum to 1, got {total}")
     if any(p_i < -1e-12 for p_i in p):
         raise ValueError("Components must be non-negative")
-    return -math.fsum(p_i * math.log2(p_i) for p_i in p if p_i > 0.0)
+    # ``+ 0.0`` turns -0.0 into 0.0: a degenerate distribution has every
+    # surviving term zero, and negating that sum yields negative zero.
+    # Entropy is nonnegative by definition, so reporting -0.0 is a wart.
+    return -math.fsum(p_i * math.log2(p_i) for p_i in p if p_i > 0.0) + 0.0
 
 
 def classify_case(abar: float, f0: float, f1: float, tol: float = 1e-8) -> int:
