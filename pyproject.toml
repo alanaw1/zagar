@@ -44,3 +44,13 @@ wheel.packages = ["src/zagar"]
 wheel.exclude = ["*.cpp", "*.hpp"]
 sdist.include = ["pyproject.toml", "CMakeLists.txt", "README_PyPI.md", "src/zagar/*.cpp", "src/zagar/*.hpp", "src/zagar/__init__.py", "LICENSE"]
 sdist.exclude = ["docs", "build",".git", "README.md", "GitHub_images", ".gitattributes", ".gitignore", ".pytest_cache", "*.egg-info", "__pycache__", ".DS_Store", ".claude", "count_binary.cpp", "tests/__pycache__"]
+
+[tool.pytest.ini_options]
+# Doctests are part of the suite.  Three examples in __init__.py had been
+# failing since before 0.2.0 -- one expecting a rounded float where repr gives
+# full precision, two with no expected output recorded at all -- purely because
+# nothing ever ran them.  Collecting them here is what stops that recurring.
+# Only .py files are collected, so the docstrings compiled into _core are not
+# executed; those examples are checked by hand.
+addopts = "--doctest-modules"
+testpaths = ["tests", "src/zagar"]

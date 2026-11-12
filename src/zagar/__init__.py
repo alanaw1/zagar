@@ -464,7 +464,7 @@ def getA12(N, a_vec, phi0_vec, phi1_vec, sort_p_desc=True, return_approx=False):
     >>> result = zagar.getA12(N=4, a_vec=[4]*4, phi0_vec=[4]*4, phi1_vec=[4]*4, return_approx=True)
     >>> result['count']
     824410
-    >>> result['log2_approx']  # Approximation of log2(count)
+    >>> round(result['log2_approx'], 4)  # Approximation of log2(count)
     19.6675
     """
     a_vec = list(a_vec)
@@ -608,9 +608,13 @@ def getA12_pruning(N, a_vec, phi0_vec, phi1_vec, n_threads=-1, sort_p_desc=True,
     >>> # Basic usage (same API as getA12_parallel)
     >>> zagar.getA12_pruning(N=5, a_vec=[2, 2], phi0_vec=[1, 1], phi1_vec=[1, 1])
     7632
-    >>> # Compare timing with getA12_parallel for larger inputs
-    >>> import time
-    >>> start = time.time(); zagar.getA12_pruning(N=8, a_vec=[8]*8, phi0_vec=[8]*8, phi1_vec=[8]*8); print(f"Pruning: {time.time()-start:.2f}s")
+    >>> # The pruning and symmetry optimisations change the cost, not the count
+    >>> zagar.getA12_pruning(N=4, a_vec=[4]*4, phi0_vec=[4]*4, phi1_vec=[4]*4)
+    824410
+    >>> zagar.getA12_pruning(N=4, a_vec=[4]*4, phi0_vec=[4]*4,
+    ...                      phi1_vec=[4]*4) == zagar.getA12(
+    ...     N=4, a_vec=[4]*4, phi0_vec=[4]*4, phi1_vec=[4]*4)
+    True
     """
     a_vec = list(a_vec)
     phi0_vec = list(phi0_vec)
@@ -689,8 +693,12 @@ def compareA1A2(a_vec, phi0_vec, phi1_vec, use_large_NP=False):
     >>> import zagar
     >>> result = zagar.compareA1A2([25]*50, [20]*50, [22]*50)
     >>> print(result['outcome'])
+    A2 is at least as large
     >>> result = zagar.compareA1A2([25]*50, [20]*50, [22]*50, use_large_NP=True)
-    >>> print(result['large_NP_stat'])
+    >>> round(result['large_NP_stat'], 4)
+    -0.1695
+    >>> print(result['large_NP_outcome'])
+    A2 is roughly at least as large
 
     Notes
     -----
