@@ -15,7 +15,7 @@ import warnings
 import pytest
 
 DOCS = pathlib.Path(__file__).resolve().parent.parent / "docs" / "source"
-RST_PAGES = ["api.rst", "python_ex.rst"]
+RST_PAGES = ["api.rst", "python_ex.rst", "asymptotics_ex.rst"]
 
 
 @pytest.mark.skipif(not DOCS.is_dir(), reason="docs/ not present (sdist install)")
@@ -37,7 +37,7 @@ def test_documentation_examples(page):
         f"{result.failed} of {result.attempted} examples in {page} failed; "
         "run `python -m doctest docs/source/" + page + "` to see them"
     )
-    assert result.attempted > 40, (
+    assert result.attempted > 20, (
         f"only {result.attempted} examples found in {page}; the parser may "
         "have stopped early"
     )

@@ -4,7 +4,7 @@ Admixed arrays are discrete structures arising from analyses of genetically admi
 to binary matrices. **zagar** is a software that allows the user to compute the cardinality of constrained sets 
 of admixed arrays. These constraints include individual global ancestry proportions (a row sum constraint) and 
 ancestry-specific allele frequencies (a column sum constraint). Analytically derived approximate counts are provided for 
-a special semi-regular constraint.  
+semi-regular constraints.  
 
 <p align="center">
 	<img src="./GitHub_images/example.jpg" width="600" />

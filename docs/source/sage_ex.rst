@@ -205,12 +205,14 @@ We demonstrate this functionality in **zagar**.
    sage: phi0_reg = vector(ZZ, [N]*P)  # length P, all entries = N
    sage: phi1_reg = vector(ZZ, [N]*P)  # length P, all entries = N
 
-   # Compute size of A12 and report the approximation and upper bound
+   # Compute size of A12 and report the approximation and upper bound.
+   # A RuntimeWarning is raised to say the value is asymptotic; in versions
+   # before 0.2.0 this was printed to standard output instead.
    sage: res = zagar.getA12(N=N, a_vec=a_reg, phi0_vec=phi0_reg, phi1_vec=phi1_reg, return_approx=True)
-   Computing estimated log-counts based on saddle-point approximation.
-   Note: log2_approx is good only when P and N are large with bounded ratio
    sage: print(res)
-   {'count': 25697841152, 'is_regular': True, 'log2_upper_bound': 35.40699628357531, 'log2_approx': 34.59881989492918}
+   {'count': 25697841152, 'is_regular': True,
+    'log2_upper_bound': 35.40699628357531,
+    'log2_approx': 34.59881989492918, 'case': 4}
 
    # Saddle-point approximation 
    sage: print(res['log2_approx'])
