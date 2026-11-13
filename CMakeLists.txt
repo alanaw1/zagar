@@ -71,6 +71,25 @@ if(NOT Boost_FOUND)
     endif()
 endif()
 
+# If still not found, probe the standard system prefixes.  Any distro Boost
+# older than 1.70 ships no BoostConfig.cmake -- that file did not exist before
+# then -- so with CMP0167 NEW above, config mode cannot see it however
+# correctly it is installed.  manylinux_2_28 is AlmaLinux 8, whose boost-devel
+# is 1.66, which is why the Linux wheel build failed at configure time with the
+# headers already present in /usr/include.  Ubuntu 18.04 (1.65) and CentOS 7
+# (1.53) behave the same way, so this is also what an sdist build falls back to
+# on such a system.
+if(NOT Boost_FOUND)
+    foreach(SYS_PREFIX /usr/local /usr)
+        if(EXISTS "${SYS_PREFIX}/include/boost/multiprecision/cpp_int.hpp")
+            set(Boost_INCLUDE_DIRS "${SYS_PREFIX}/include")
+            set(Boost_FOUND TRUE)
+            message(STATUS "Found Boost headers at ${SYS_PREFIX}/include")
+            break()
+        endif()
+    endforeach()
+endif()
+
 if(NOT Boost_FOUND)
     message(FATAL_ERROR
         "Boost not found. Please install Boost:\n"
