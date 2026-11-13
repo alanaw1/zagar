@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <limits>
 #include <cmath>
+#include <cstddef>
 
 #ifdef ZAGAR_HAS_OPENMP
 #include <omp.h>
@@ -554,22 +555,31 @@ A12Result getA12_parallel(
 
     std::vector<cpp_int> partial_sums(first_pairs.size());
 
+    // MSVC implements only OpenMP 2.0, whose canonical loop form demands a
+    // SIGNED index variable; an unsigned one is error C3016 there, which is
+    // what broke the Windows wheel build.  The bound is hoisted out for the
+    // same standard's sake -- it wants a loop-invariant expression rather than
+    // a method call -- and ptrdiff_t is the signed type guaranteed to span any
+    // container that fits in memory.
+    const std::ptrdiff_t n_first_pairs = static_cast<std::ptrdiff_t>(first_pairs.size());
+
 #ifdef ZAGAR_HAS_OPENMP
     if (n_threads > 0) {
         omp_set_num_threads(n_threads);
     }
 
     #pragma omp parallel for schedule(dynamic)
-    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+    for (std::ptrdiff_t idx0 = 0; idx0 < n_first_pairs; ++idx0) {
 #else
     (void)n_threads; // Suppress unused warning
-    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+    for (std::ptrdiff_t idx0 = 0; idx0 < n_first_pairs; ++idx0) {
 #endif
+        const size_t i0 = static_cast<size_t>(idx0);
         cpp_int local_sum = 0;
 
         std::vector<int> v1(P, 0), v2(P, 0);
-        v1[0] = first_pairs[idx0].first;
-        v2[0] = first_pairs[idx0].second;
+        v1[0] = first_pairs[i0].first;
+        v2[0] = first_pairs[i0].second;
 
         // Enumerate configurations for this first pair
         std::vector<std::pair<std::vector<int>, std::vector<int>>> local_configs;
@@ -606,7 +616,7 @@ A12Result getA12_parallel(
         enumerate_suffix(1);
 
         if (local_configs.empty()) {
-            partial_sums[idx0] = 0;
+            partial_sums[i0] = 0;
             continue;
         }
 
@@ -648,7 +658,7 @@ A12Result getA12_parallel(
             }
         }
 
-        partial_sums[idx0] = local_sum;
+        partial_sums[i0] = local_sum;
     }
 
     cpp_int total_sum = 0;
@@ -757,22 +767,31 @@ A12Result getA12_pruning(
 
     std::vector<cpp_int> partial_sums(first_pairs.size());
 
+    // MSVC implements only OpenMP 2.0, whose canonical loop form demands a
+    // SIGNED index variable; an unsigned one is error C3016 there, which is
+    // what broke the Windows wheel build.  The bound is hoisted out for the
+    // same standard's sake -- it wants a loop-invariant expression rather than
+    // a method call -- and ptrdiff_t is the signed type guaranteed to span any
+    // container that fits in memory.
+    const std::ptrdiff_t n_first_pairs = static_cast<std::ptrdiff_t>(first_pairs.size());
+
 #ifdef ZAGAR_HAS_OPENMP
     if (n_threads > 0) {
         omp_set_num_threads(n_threads);
     }
 
     #pragma omp parallel for schedule(dynamic)
-    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+    for (std::ptrdiff_t idx0 = 0; idx0 < n_first_pairs; ++idx0) {
 #else
     (void)n_threads;
-    for (size_t idx0 = 0; idx0 < first_pairs.size(); ++idx0) {
+    for (std::ptrdiff_t idx0 = 0; idx0 < n_first_pairs; ++idx0) {
 #endif
+        const size_t i0 = static_cast<size_t>(idx0);
         cpp_int local_sum = 0;
 
         std::vector<int> v1(P, 0), v2(P, 0);
-        v1[0] = first_pairs[idx0].first;
-        v2[0] = first_pairs[idx0].second;
+        v1[0] = first_pairs[i0].first;
+        v2[0] = first_pairs[i0].second;
 
         // Store configs with their symmetry multiplier (1 if v1==v2, 2 if v1<v2)
         struct ConfigWithMult {
@@ -852,7 +871,7 @@ A12Result getA12_pruning(
         enumerate_suffix(1, first_sum, init_cmp);
 
         if (local_configs.empty()) {
-            partial_sums[idx0] = 0;
+            partial_sums[i0] = 0;
             continue;
         }
 
@@ -895,7 +914,7 @@ A12Result getA12_pruning(
             }
         }
 
-        partial_sums[idx0] = local_sum;
+        partial_sums[i0] = local_sum;
     }
 
     cpp_int total_sum = 0;

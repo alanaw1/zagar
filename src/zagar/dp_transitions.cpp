@@ -24,9 +24,40 @@ std::vector<std::vector<uint64_t>> binomial_table(int n) {
     return B;
 }
 
+// __builtin_mul_overflow / __builtin_add_overflow are GCC and Clang
+// extensions.  MSVC has no equivalent, so it needs the checks written out, and
+// without them the Windows wheel build failed with error C3861 ("identifier
+// not found") on both of them.
+//
+// The fallbacks rely on unsigned arithmetic wrapping modulo 2**64, which is
+// defined behaviour, unlike the signed case.  For the product, a * b overflows
+// exactly when dividing the wrapped result back by a does not return b; for
+// the sum, a carry out shows up as a result below either operand.  The
+// division costs more than the builtin's single flag check, which is why the
+// builtins are kept where they exist -- the heavy runs are not on Windows.
+#if defined(__GNUC__) || defined(__clang__)
+inline bool mul_overflows(uint64_t a, uint64_t b, uint64_t* out) {
+    return __builtin_mul_overflow(a, b, out);
+}
+
+inline bool add_overflows(uint64_t a, uint64_t b, uint64_t* out) {
+    return __builtin_add_overflow(a, b, out);
+}
+#else
+inline bool mul_overflows(uint64_t a, uint64_t b, uint64_t* out) {
+    *out = a * b;
+    return a != 0 && *out / a != b;
+}
+
+inline bool add_overflows(uint64_t a, uint64_t b, uint64_t* out) {
+    *out = a + b;
+    return *out < a;
+}
+#endif
+
 uint64_t mul_checked(uint64_t a, uint64_t b) {
     uint64_t out;
-    if (__builtin_mul_overflow(a, b, &out)) {
+    if (mul_overflows(a, b, &out)) {
         throw std::overflow_error(
             "zagar: locus transition weight exceeded uint64; N is too large "
             "for the C++ backend"
@@ -37,7 +68,7 @@ uint64_t mul_checked(uint64_t a, uint64_t b) {
 
 uint64_t add_checked(uint64_t a, uint64_t b) {
     uint64_t out;
-    if (__builtin_add_overflow(a, b, &out)) {
+    if (add_overflows(a, b, &out)) {
         throw std::overflow_error(
             "zagar: locus transition weight exceeded uint64; N is too large "
             "for the C++ backend"
