@@ -1,14 +1,29 @@
-Asymptotics Example
-===================
+Asymptotic Approximation
+========================
 
-Exact enumeration of :math:`\mathscr{A}_{12}` is expensive, and unavoidably so:
-the cost grows roughly tenfold for each unit increase in :math:`N`, which puts
-:math:`N = P = 13` or thereabouts beyond practical reach. Past that point the
-answer has to come from an asymptotic formula instead.
+Exact enumeration of :math:`\mathscr{A}_{12}` becomes expensive quickly, and
+for a structural reason. The dynamic program behind :func:`zagar.count_A12_dp`
+holds one layer of states at a time, where a state is the histogram of the row
+sums still to be placed, so a layer holds at most
+:math:`\binom{N + \max_n a_n}{N}` states. For semi-regular margins with
+:math:`P = N` and :math:`\bar{a} = 1/2` that is
+:math:`\binom{2N}{N} = \Theta(4^N\!/\sqrt{N})` states. The state space can therefore
+be exponential in :math:`N`. (For :math:`N = P = 10` we hit 95% of that bound.)
 
-This page covers that formula --- Theorem 3.1 --- as **zagar** implements it:
-what it needs from you, which of its four regimes applies, how to read the
-pieces it is assembled from, and how accurate it actually is.
+The runtime also grows quickly, because the work per state grows: we observed about
+a factor of ten per unit of :math:`N` at :math:`\bar{a} = 1/2`,
+:math:`f_0 = f_1 = 1/4`, which on extrapolation puts :math:`N = P = 13` near
+the limit of what is practical on one machine. Hence, to obtain counts for problem
+parameters :math:`N,P\geq 13`, one should fall back on asymptotic approximation.
+
+We saw earlier that a regular admixed array admits a saddle-point approximation.
+This page covers details of a broader asymptotic approximation formula implemented in **zagar**.
+Specifically:
+
+  - What does it need from you, the user?
+  - Which of the four regimes applies?
+  - How do you read the pieces it is assembled from?
+  - How accurate is the formula?
 
 Semi-Regular Margins
 --------------------
@@ -20,18 +35,18 @@ locus the same pair of ancestry-specific allele dosages. In symbols,
 :math:`\boldsymbol{\phi}_0 = (\phi_0, \ldots, \phi_0)` and
 :math:`\boldsymbol{\phi}_1 = (\phi_1, \ldots, \phi_1)`.
 
-Three numbers then describe the problem completely, in place of three vectors:
+When the margins are semi-regular, three numbers describe the problem completely,
+in place of three vectors:
 
 .. math::
 
    \bar{a} = \frac{a}{2P}, \qquad f_0 = \frac{\phi_0}{2N},
    \qquad f_1 = \frac{\phi_1}{2N}.
 
-The denominators differ, and the difference is easy to lose sight of. Each
-individual has :math:`2P` haplotype slots across the loci, so :math:`\bar{a}`
-is taken over :math:`2P`; each locus is observed on :math:`2N` haplotypes
-across the cohort, so the allele densities are taken over :math:`2N`. They
-coincide only when :math:`N = P`.
+Note that the denominators differ. Each individual has :math:`2P` haplotype
+slots across the loci, so :math:`\bar{a}` is taken over :math:`2P`; each locus
+is observed on :math:`2N` haplotypes across the cohort, so the allele densities
+are taken over :math:`2N`. They coincide only when :math:`N = P`.
 
 ``densities_from_constraints`` performs the conversion, and refuses margins
 that are not semi-regular rather than silently averaging them:
@@ -52,6 +67,8 @@ Note that :math:`f_0` and :math:`f_1` are *joint* proportions over all
 :math:`2N` haplotypes at a locus, not frequencies conditional on ancestry.
 Their sum :math:`f_0 + f_1` is the overall alternative allele frequency there.
 
+.. _four-regimes:
+
 Four Regimes
 ------------
 
@@ -71,9 +88,9 @@ nonnegative gives the feasible region
 
    f_1 \;\leq\; \bar{a} \;\leq\; 1 - f_0,
 
-so the region is not an extra modelling assumption --- it is just the statement
-that no cell type can occur a negative number of times. Second, the regimes of
-Theorem 3.1 are exactly the places where one of the four types runs out:
+so the region is not an extra modeling assumption --- it is just the statement
+that no cell type can occur a negative number of times. Second, the regimes below
+correspond exactly to the places where one of the four types runs out:
 
 .. list-table::
    :header-rows: 1
@@ -100,13 +117,13 @@ Theorem 3.1 are exactly the places where one of the four types runs out:
    * - 4
      - both
      - :math:`(1,0)`, :math:`(0,0)`
-     - :math:`\mathbf{X} \equiv 1`, so the array is determined by
+     - :math:`\mathbf{X} \equiv \mathbf{1}`, so the array is determined by
        :math:`\mathbf{A}` alone; :math:`D = N + P - 1`
 
 Here :math:`D` is the dimension of the constraint space. In Case 1 the
 :math:`N` row constraints and :math:`2P` column constraints are independent. In
 Cases 2 and 3 the identity in the last column makes one of them redundant, so
-:math:`D` drops by one. In Case 4, :math:`\mathbf{X} \equiv 1` means
+:math:`D` drops by one. In Case 4, :math:`\mathbf{X} \equiv \mathbf{1}` means
 :math:`\phi_{0,p} + \phi_{1,p} = 2N` at every locus, so the two column
 constraints per locus collapse into one, leaving :math:`P` of them rather than
 :math:`2P`, and the row-sum identity costs one more.
@@ -133,12 +150,11 @@ Densities outside the feasible region are rejected:
        ...
    ValueError: f1 = 0.5 > abar = 0.3; |A12| = 0
 
-The boundaries are tested with a small tolerance, and that is a mathematical
-decision rather than a defensive one. The Case 1 correction term behaves like
-:math:`-1/\bigl(24NP(\bar{a} - f_1)\bigr)` as :math:`f_1 \to \bar{a}`, so it
-does not merely lose accuracy near the boundary --- it diverges. The boundary
-formula is the correct one there, so a point a hair inside Case 1 is treated as
-Case 2.
+We test the boundaries with a small tolerance for a mathematical reason.
+The Case 1 correction term behaves like :math:`-1/\bigl(24NP(\bar{a} - f_1)\bigr)`
+as :math:`f_1 \to \bar{a}`, so it does not merely lose accuracy near the boundary --- it diverges.
+The boundary formula is the correct one there, so a point a hair inside Case 1 is
+treated as Case 2.
 
 The Shape of the Formula
 ------------------------
@@ -158,8 +174,8 @@ of the cell-type distribution above, and :math:`2NP\,H` is how many bits it
 takes to describe an array whose cells follow it. Everything after that is the
 correction for the constraints actually holding exactly rather than on average.
 :math:`\Delta` is the determinant arising at the saddle point, :math:`D` the
-dimension counted in the table, and :math:`K` the leading finite-size
-correction.
+dimension listed under :ref:`four-regimes`, and :math:`K` the leading
+finite-size correction.
 
 Passing ``details=True`` returns all five pieces, so you can see which part of
 the expansion a change in the densities actually moves:
@@ -178,7 +194,7 @@ A Worked Example in Each Regime
 -------------------------------
 
 Holding :math:`N = P = 10` and :math:`\bar{a} = 1/2` fixed and varying only the
-allele densities walks through all four regimes in turn:
+allele densities walks through all four regimes in turn, we get:
 
 .. list-table::
    :header-rows: 1
@@ -220,12 +236,12 @@ allele densities walks through all four regimes in turn:
      - -0.451
      - 153.762
 
-Reading across: as cell types are forced out, the entropy falls from 2 bits to
+Reading across the cases: as cell types are forced out, the entropy falls from 2 bits to
 1, and the dimension falls from 30 to 19. The leading term :math:`2NP\,H`
 shrinks accordingly, which is why the counts differ by so much.
 
 The Cases 2 and 3 rows are identical, and not by coincidence. Replacing
-:math:`\mathbf{A}` by :math:`1 - \mathbf{A}` is a bijection on admixed arrays:
+:math:`\mathbf{A}` by :math:`\mathbf{1} - \mathbf{A}` is a bijection on admixed arrays:
 it sends row sums :math:`a_n` to :math:`2P - a_n` and exchanges the cell types
 :math:`(1,1) \leftrightarrow (0,1)` and
 :math:`(1,0) \leftrightarrow (0,0)`, so it maps
@@ -240,12 +256,14 @@ another under it:
    >>> x == y
    True
 
-How Accurate Is It?
--------------------
+.. _how-accurate:
 
-Asymptotic results are only useful if you know when to trust them, so the
-comparison against exact enumeration is worth doing explicitly. Each row below
-enumerates :math:`|\mathscr{A}_{12}|` exactly and compares.
+How Accurate is the Formula?
+----------------------------
+
+Asymptotic results are useful only if we know we can trust them, so the
+comparison against exact enumeration is worth doing explicitly. Below, each row
+enumerates :math:`|\mathscr{A}_{12}|` exactly and compares it with the formula.
 
 .. list-table::
    :header-rows: 1
@@ -340,34 +358,93 @@ enumerates :math:`|\mathscr{A}_{12}|` exactly and compares.
      - 179.1720
      - +0.0134
 
-Three things are worth drawing out.
+We note three observations.
 
-The errors are **tiny in relative terms**. At :math:`N = P = 10` the
-approximation is wrong by 0.0097 bits in a count of 330 bits --- a relative
-error of :math:`3 \times 10^{-5}`, on a number with 100 decimal digits.
+1. The errors are **tiny in relative terms**. At :math:`N = P = 10` the approximation is wrong by 0.0097 bits in a count of 330 bits --- a relative error of :math:`3 \times 10^{-5}`, on a number with 100 decimal digits.
+2. They are **positive at every point in this table**, but that is a property of these points. The sign flips to negative elsewhere in the feasible region; the next subsection says where.
+3. They **shrink as the arrays grow** once the densities are held fixed, which is what makes it an asymptotic result: :math:`+0.0107` bits at :math:`N = P = 4` falling to :math:`+0.0084` at :math:`N = P = 11` along :math:`f_0 = f_1 = 1/4`. Not monotonically, though --- the same line reads :math:`+0.0107`, :math:`+0.0121`, :math:`+0.0110`, :math:`+0.0097` at :math:`N = P = 4, 6, 8, 10`. The qualifier *at fixed densities* is required, as the next subsection shows.
 
-They are **consistently positive**. The expansion always overestimates at
-finite size, across every regime and every size tested. That sign is a property
-of the derivation, not an accident of these particular points, and the test
-suite asserts it rather than merely bounding the magnitude.
+Where the Sign Turns
+^^^^^^^^^^^^^^^^^^^^
 
-They **shrink as the arrays grow**, which is what makes it an asymptotic
-result: :math:`+0.0107` bits at :math:`N = P = 4` falling to :math:`+0.0084`
-at :math:`N = P = 11`. The worst row in the table,
-:math:`+0.0358` at :math:`(4, 4, 0.25, 0.75, 0.25)`, is also the smallest
-array in it.
+The approximation result is a statement about :math:`N, P \to \infty` with the three
+densities held *fixed*. Holding them fixed guarantees that the error will go to zero,
+but which side it approaches from depends on where in the feasible region we
+are at:
 
-Note again that the two :math:`(8, 8)` rows in Cases 2 and 3 agree exactly, on
-the exact counts as well as the approximations. The complement bijection is
-visible in the enumeration, not just in the formula.
+.. list-table::
+   :header-rows: 1
+   :widths: 34 22 22 22
+
+   * - held fixed, :math:`\bar{a} = 1/2`
+     - :math:`N = P = 4`
+     - :math:`N = P = 8`
+     - :math:`N = P = 10`
+   * - :math:`f_0 = f_1 = 1/4`
+     - :math:`+0.0107`
+     - :math:`+0.0110`
+     - :math:`+0.0097`
+   * - :math:`f_0 = f_1 = 1/8`
+     - :math:`-0.0164`
+     - :math:`-0.0003`
+     - not representable
+
+Both rows converge to zero, one from above and one from below. So "the
+expansion overestimates" describes the neighborhood of
+:math:`f_0 = f_1 = 1/4` --- which is where every row of the
+:ref:`how-accurate` table happens to sit --- and not the actual result. Sweeping every margin small enough to check exactly,
+**252 of the 680 at** :math:`N = P = 8` **are underestimates**, and the
+proportion grows with size: 9 of 84 at :math:`N = P = 4`, 94 of 272 at
+:math:`N = P = 6`, 252 of 680 at :math:`N = P = 8`.
+
+Larger errors appear if the densities are *not* held fixed. Fixing one
+alternative allele per locus on each ancestry --- :math:`\phi_0 = \phi_1 = 1`,
+so that :math:`f_0 = f_1 = 1/(2N)` --- drives two of the four densities to zero
+as the arrays grow, and the error then moves the wrong way:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 14 14 14 14 14
+
+   * - :math:`N = P`
+     - 4
+     - 5
+     - 6
+     - 7
+     - 8
+   * - error (bits)
+     - :math:`-0.016`
+     - :math:`-0.025`
+     - :math:`-0.033`
+     - :math:`-0.041`
+     - :math:`-0.049`
+
+This lies outside the approximation formula's assumptions rather than being a
+counterexample to it. Two cell types have density :math:`O(1/N)` here, so the
+terms the expansion drops are no longer small, and there is no reason to expect
+convergence along such a sequence.
+
+In practice, this means the approximation is at its best when all four cell type
+densities lie comfortably away from :math:`0` and :math:`1`. The error is generally a
+few hundredths of a bit, and one should not count on its direction.
+
+Should the direction matter for what you are doing, the options are an exact count
+or, at the symmetric point :math:`\bar{a} = f_0 = f_1 = 1/2` only, the separate
+``log2_upper_bound`` that :func:`zagar.getA12` returns there. That bound is proved in
+`Aw (2026+) <https://arxiv.org/abs/2604.08857>`_, and it holds at every size
+checked: :math:`+0.35` bits of slack at :math:`N = P = 2` widening to
+:math:`+0.67` at :math:`N = P = 12`.
 
 Choosing Between Exact and Asymptotic
 -------------------------------------
 
-The practical question is which to reach for. The exact routines are the right
-answer whenever they finish, and the table below says when that is, measured at
-the hardest parameter point --- :math:`\bar{a} = 1/2`, :math:`f_0 = f_1 = 1/4`,
-which maximises the number of reachable states:
+We mentioned earlier that for problem parameters :math:`N,P\geq 13`, one should fall back
+on asymptotic approximation. Here, we report a timing experiment, where we set
+:math:`\bar{a} = 1/2`, :math:`f_0 = f_1 = 1/4`. That point is deliberately
+expensive without being the worst case: a sweep of all 438 feasible integer
+margins at :math:`N = P = 6` places it within 15% of the widest state space,
+and timings are flat across that whole range, so the figures below are
+representative rather than a ceiling.
 
 .. list-table::
    :header-rows: 1
@@ -402,34 +479,23 @@ which maximises the number of reachable states:
      - --
      - instant
 
-So in round terms: up to :math:`N = P \approx 10` the exact count is a
-reasonable thing to ask for interactively; beyond :math:`N = P \approx 13` it
-is not available at any price, and the asymptotic value is the only answer
-there is. In the overlap, computing both is a cheap way to confirm the
-approximation is behaving as expected on your parameters.
-
-The asymptotic value takes microseconds regardless of :math:`N` and
-:math:`P` --- it is a closed-form expression, so the sizes enter only as
-numbers:
-
-.. code-block:: python
-
-   >>> round(zagar.log2_A12_asymptotic(10**6, 10**6, 0.5, 0.25, 0.25), 2)
-   3999968125402.55
+As the table confirms, up to :math:`N = P \approx 10` the exact count is a
+reasonable thing to ask for interactively. However, beyond :math:`N = P \approx 13` it
+is not available within a reasonable time, and so the asymptotic approximation should be used.
 
 A Caution on Representability
 -----------------------------
 
-A density is only realisable if it corresponds to whole numbers of haplotypes.
+A density is only realizable if it corresponds to whole numbers of haplotypes.
 At :math:`N = 11`, for instance, :math:`2N f_0 = 5.5` when :math:`f_0 = 1/4`,
 so a quarter density simply cannot be expressed at that size --- which is why
-the :math:`N = P = 11` row of the accuracy table uses :math:`5/22` instead.
+the :math:`N = P = 11` row of the :ref:`how-accurate` table uses :math:`5/22`
+instead.
 
 Building constraint vectors by rounding is therefore a reliable way to compute
-at a parameter point other than the one you intended, and Python's
-round-half-to-even makes it worse rather than better: ``round(4.5)`` is 4 and
-``round(5.5)`` is 6. Round-tripping through ``densities_from_constraints`` is a
-cheap way to catch it:
+at a parameter point other than the one you intended. Python's
+round-half-to-even actually makes it worse rather than better: ``round(4.5)`` is 4 and
+``round(5.5)`` is 6. However, you can use ``densities_from_constraints`` to catch such scenarios:
 
 .. code-block:: python
 

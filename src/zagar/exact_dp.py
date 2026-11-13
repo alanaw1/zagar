@@ -29,10 +29,24 @@ enumerated --- which is the step that dominates the Miller--Harrison approach.
 
 Complexity
 ----------
-The state is a composition of ``N`` into at most ``max(a_vec) + 1`` parts, and
-the number of reachable states is what makes this exponential: the widest layer
-holds 11,802 states at ``N = P = 8`` and 175,070 at ``N = P = 10``, growing by
-a factor of seven or eight per unit of ``N``.
+The state is a composition of ``N`` into at most ``max(a_vec) + 1`` parts, so a
+layer holds at most ``comb(N + max(a_vec), N)`` states.  For semi-regular
+margins with ``P = N`` and ``abar = 1/2`` that is ``comb(2N, N)``, which is
+``Theta(4**N / sqrt(N))``: this is the sense in which the program is provably
+exponential, independent of any timing.
+
+The bound is close to tight.  The widest layer holds 11,802 states at
+``N = P = 8`` against ``comb(16, 8) = 12,870``, and 175,070 at ``N = P = 10``
+against ``comb(20, 10) = 184,756`` -- 92% and 95% of it, rising with ``N``.
+Successive ratios of the bound are ``2(2N + 1)/(N + 1)``, which approaches 4
+from below, and the measured widths track it: 14.3x, 14.7x and 14.8x per two
+units of ``N`` over ``N = 4, 6, 8, 10``, or about 3.8x per unit.
+
+Per single unit the measured widths alternate instead, roughly 2x then 7.5x.
+That is an artifact of the parameter point, not of the algorithm: at odd ``N``
+the density ``f0 = f1 = 1/4`` is not representable, since ``2N/4`` is not an
+integer, so the rounded margins admit a smaller state space.  Even ``N`` is the
+like-for-like comparison, and the only one tabulated below.
 
 Only one layer is held at a time, so that growth is modest in absolute terms --
 the whole ``N = P = 10`` run fits in 54 MB.
@@ -69,17 +83,31 @@ layer and builds no table at all.  The advantage narrows as ``N`` grows (10x at
 
 Past the table, ``N = P = 11`` at ``f0 = f1 = 5/22`` takes 7.8 min and 122 MB
 under ``"cpp"`` against 24 min under ``"python"``, and the two agree on all 404
-bits of the answer.  Time grows roughly tenfold per unit of ``N`` while memory
-grows only two- or threefold, so time is the binding constraint and ``N = 13``
-is about the practical ceiling.
+bits of the answer.  Across the runs above, time grew by roughly a factor of
+ten per unit of ``N`` while memory grew two- or threefold, so time is the
+binding constraint, and extrapolating that rate puts the practical ceiling near
+``N = 13``.  That factor is an observed rate for this implementation at this
+parameter point on one machine, not an asymptotic statement: what is provable
+is only that the state space is exponential (see above), and the measured time
+grows faster than the state count because the work per state grows too.
 
-This point, and not ``abar = f0 = f1 = 1/2``, is the expensive one.  Setting
-``abar = 1/2`` does maximise the number of reachable histograms, but taking
-``f0 = f1 = 1/2`` saturates every locus: ``f0 + f1 = 1`` forces ``X == 1``
-everywhere (Case 4 of :mod:`zagar.asymptotics`), leaving each locus a single
-admissible column sum.  That is far cheaper --- at ``N = P = 7``, 0.0010 s
-against 0.034 s under ``"cpp"``.  Skewing ``abar`` away from 1/2 likewise
-shrinks the state space.
+This point is deliberately expensive, but it is not the maximum.  Sweeping all
+438 feasible integer margins at ``N = P = 6`` ranks it 10th by widest layer:
+802 states against 924 at ``f0 = f1 = 0``, which attains the ``comb(12, 6)``
+bound exactly, because zero alternative alleles make every column weight 1 and
+so prune nothing.  In wall-clock terms the gap is smaller and runs the other
+way -- at ``N = P = 8``, 0.42 s at ``f0 = f1 = 0`` against 0.36 s at
+``f0 = f1 = 1/4`` -- so ``0 <= f0 = f1 <= 1/4`` is a plateau rather than a
+peak, and any point on it would do for the tables above.
+
+What does change the cost by orders of magnitude is ``f0 + f1 = 1``, which
+saturates every locus: it forces ``X == 1`` everywhere (Case 4 of
+:mod:`zagar.asymptotics`), leaving each locus a single admissible column sum.
+At ``N = P = 8`` that is 0.007 s against 0.36 s.  ``abar`` matters as well, and
+there ``1/2`` does look like the worst case, though only on the evidence of
+that sweep rather than by any argument: all twelve of its highest-ranked
+margins had ``abar = 1/2``, and holding ``f0 = f1 = 1/4`` the widest layer
+falls from 802 states to 348 at ``abar = 7/12`` and 110 at ``abar = 2/3``.
 
 Non-uniform constraints are supported.  Loci are processed in an order chosen to
 prune early, which is valid because permuting loci is a bijection on arrays that

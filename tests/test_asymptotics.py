@@ -210,15 +210,74 @@ def test_case4_reproduces_legacy_symmetric_approximation():
 def test_close_to_exact_counts(N, P, abar, f0, f1, exact_log2, case):
     """Within 0.04 bits of exact enumeration even at these very small sizes.
 
-    The lower bound is the interesting half: the expansion must *over*estimate
-    at finite size, so a sign error would pass a two-sided bound.  0.04 is
-    close to binding -- at (4, 4, 0.25, 0.75, 0.25) the error is +0.0358,
-    the largest over all 21 rows.
+    The lower bound of 0 is asserted because every row here happens to be an
+    overestimate, which makes a sign error fail rather than slip through a
+    two-sided bound.  It is *not* a general property: see
+    ``test_the_error_sign_is_not_guaranteed`` below for margins where the
+    expansion undershoots.  These rows all sit at densities bounded away from
+    0 and 1, which is the regime the theorem is about.
+
+    0.04 is close to binding -- at (4, 4, 0.25, 0.75, 0.25) the error is
+    +0.0358, the largest over all the rows above.
     """
     got = log2_A12_asymptotic(N, P, abar, f0, f1, details=True)
     assert got["case"] == case
     err = got["log2_A12"] - exact_log2
     assert 0 < err < 0.04, f"error {err:+.4f} bits outside the expected band"
+
+
+@pytest.mark.parametrize(
+    "N,P,abar,f0,f1,exact_log2",
+    [
+        # phi0 = phi1 = 1, abar = 1/2: f0 = f1 = 1/(2N), so two of the four
+        # cell type densities shrink with N and the expansion undershoots by a
+        # margin that *grows* instead of shrinking.  Exact values from
+        # count_A12_dp, which is independently tested in test_exact_dp.py.
+        (4, 4, 0.5, 0.125, 0.125, 39.8892),
+        (5, 5, 0.5, 0.1, 0.1, 62.4506),
+        (6, 6, 0.5, 1 / 12, 1 / 12, 89.4593),
+        (7, 7, 0.5, 1 / 14, 1 / 14, 120.8361),
+        (8, 8, 0.5, 0.0625, 0.0625, 156.5263),
+    ],
+)
+def test_the_error_sign_is_not_guaranteed(N, P, abar, f0, f1, exact_log2):
+    """The expansion is not an upper bound, and these rows pin that down.
+
+    ``test_close_to_exact_counts`` asserts ``0 < err`` for its own rows, and it
+    would be easy to read that as a property of the formula.  It is not.  The
+    documentation said so for a while and was wrong: over every margin small
+    enough to enumerate at N = P = 8, 252 of 680 are underestimates.
+
+    These five are the most negative at each size.  They are outside the
+    theorem's hypotheses -- it fixes the densities while N grows, and here
+    f0 = f1 = 1/(2N) -- but nothing in the signature stops a caller asking,
+    so the behaviour is worth having under test.  Were a future change to make
+    the expansion a true bound, this test should fail and be deleted
+    deliberately rather than quietly.
+    """
+    err = log2_A12_asymptotic(N, P, abar, f0, f1) - exact_log2
+    assert err < 0, f"expected an underestimate here, got {err:+.4f} bits"
+    assert err > -0.06, f"underestimate {err:+.4f} bits is larger than recorded"
+
+
+def test_the_underestimate_grows_with_size_at_vanishing_densities():
+    """Magnitude increases with N along f0 = f1 = 1/(2N), contrary to intuition.
+
+    The asymptotic result guarantees convergence only with the densities held
+    fixed.  Along this path they are not, and the error moves the wrong way:
+    -0.016 bits at N = P = 4 to -0.049 at N = P = 8.  This is the observation
+    that makes "the error shrinks as the arrays grow" false as stated.
+    """
+    errs = []
+    for N, exact_log2 in [
+        (4, 39.8892), (5, 62.4506), (6, 89.4593), (7, 120.8361), (8, 156.5263)
+    ]:
+        errs.append(log2_A12_asymptotic(N, N, 0.5, 1 / (2 * N), 1 / (2 * N))
+                    - exact_log2)
+    assert all(e < 0 for e in errs), errs
+    assert errs == sorted(errs, reverse=True), (
+        f"expected monotonically more negative, got {errs}")
+
 
 
 # ---------------------------------------------------------------------------

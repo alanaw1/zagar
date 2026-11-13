@@ -205,11 +205,9 @@ same integer, as they must:
    >>> zagar.count_A12(N, row_sum_A, phi0, phi1, method="miller-harrison")
    551871989144398349945520
 
-On this small example the first call takes about 0.01 s and the second about
-5 s. The gap widens quickly: by :math:`N = P = 6` the column-sum enumeration
-exhausts 16 GB, where the dynamic program needs 0.01 s and 24 MB. Use
-``count_A12`` unless you have a particular reason to want the other algorithm
---- for instance, to check one against the other.
+On this small example the first call takes about 0.01 sec and the second about
+3 sec. In general, you should use ``count_A12`` with the default setting unless
+you have a particular reason to want the other algorithm (e.g., to check one against the other).
 
 If you have OpenMP installed, ``getA12_parallel`` (or
 ``method="miller-harrison-parallel"``) threads the column-sum enumeration.
@@ -260,15 +258,15 @@ We demonstrate this functionality in **zagar**.
 
 For :math:`(N,P)=(9,3)`, there are :math:`|\mathscr{A}_{12}|=25,697,841,152` (more than 25 billion!) regular admixed arrays. This is equivalent to about :math:`\log_2(|\mathscr{A}_{12}|)=34.6` bits, which is well-approximated by the saddle-point formula.
 
-Beyond the Regular Case
-^^^^^^^^^^^^^^^^^^^^^^^
+Beyond the Regular Case (v0.2.0 update)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The formula above is specific to the fully symmetric point. Since version
-0.2.0 the approximation covers every *semi-regular* margin: any constraints in
+The formula above is specific to the fully symmetric point. As of v0.2.0
+the approximation covers every *semi-regular* margin, that is, any constraints in
 which all entries of :math:`\boldsymbol{a}` are equal, all entries of
 :math:`\boldsymbol{\phi}_0` are equal, and all entries of
 :math:`\boldsymbol{\phi}_1` are equal. Such margins are described by three
-densities,
+densities:
 
 - :math:`\bar{a}`, the fraction of each individual's :math:`2P` haplotype slots carrying ancestry 1;
 - :math:`f_0` and :math:`f_1`, the fractions of the :math:`2N` haplotypes at a locus that carry the alternative allele on an ancestry-0 and an ancestry-1 background respectively,
@@ -301,12 +299,27 @@ identified without computing anything:
    >>> zagar.classify_case(0.5, 0.25, 0.25)
    1
 
-Note the sign of that error. The expansion *overestimates* at finite size, and
-the margin shrinks as the arrays grow: about :math:`+0.011` bits here at
-:math:`N=P=4`, and :math:`+0.008` bits by :math:`N=P=11`. It is an asymptotic
-result, so a :exc:`RuntimeWarning` accompanies every approximate value to say
-so.
+That error is :math:`+0.011` bits here, and along this line of densities
+(:math:`\bar{a} = 1/2`, :math:`f_0 = f_1 = 1/4`) it stays positive and shrinks
+slowly as the arrays grow, reaching :math:`+0.008` bits by :math:`N=P=11`. The
+sign is not a general property, though: elsewhere in the feasible region the
+approximation undershoots instead. :doc:`asymptotics_ex` shows where. It is an
+asymptotic result in any case, so a :exc:`RuntimeWarning` accompanies every
+approximate value to say so.
 
-Margins that are not semi-regular fall outside the theorem. For those,
+Margins that are not semi-regular fall outside the approximation formula. For those,
 ``return_approx=True`` gives the exact count alone, with no approximation and
 no warning.
+
+Going Further
+-------------
+
+The approximation above was quoted for one set of constraints and one regime.
+Which regime a margin falls into, how the formula is assembled from the cell
+type densities, and how closely it tracks the exact counts across the whole
+feasible region are reported on the next page.
+
+.. toctree::
+   :maxdepth: 2
+
+   asymptotics_ex

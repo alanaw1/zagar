@@ -449,8 +449,20 @@ def log2_A12_asymptotic(
     Notes
     -----
     The expansion carries a ``(1 + o(1))`` relative error as ``N, P -> oo`` with
-    ``N / P`` bounded.  At finite sizes it slightly overestimates the count: at
-    ``N = P = 4`` the error is under 0.04 bits in every regime.
+    the three densities held fixed and ``N / P`` bounded.  At finite sizes the
+    error is a few hundredths of a bit, and its *direction* depends on where in
+    the feasible region the densities sit: holding ``abar = 1/2``, it runs
+    about ``+0.010`` bits along ``f0 = f1 = 1/4`` but ``-0.016`` bits at
+    ``N = P = 4`` along ``f0 = f1 = 1/8``.  Nothing here establishes a sign;
+    over every margin small enough to check exactly, 252 of the 680 at
+    ``N = P = 8`` are underestimates.
+
+    Accuracy degrades if the densities are not held fixed, which the signature
+    cannot prevent a caller from doing.  At one alternative allele per locus
+    per ancestry -- ``phi0 = phi1 = 1``, so ``f0 = f1 = 1/(2N)`` -- two of the
+    four cell types have density ``O(1/N)``, the dropped terms stop being
+    small, and the error grows with ``N`` instead of shrinking: ``-0.016``
+    bits at ``N = P = 4`` to ``-0.049`` at ``N = P = 8``.
 
     Dispatch is a classification followed by one ``_caseN`` call.  Build the
     ``details`` payload from the :class:`_Parts` that call already returned
