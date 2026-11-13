@@ -4,15 +4,40 @@ Installation
 Prerequisites
 -------------
 
-Before installing ``zagar``, ensure you have:
+``zagar`` requires **Python >= 3.10**, and installs NumPy, its only runtime
+dependency, automatically.
 
-- **Python** >= 3.8
+Beyond that, what you need depends on whether a pre-compiled wheel exists for
+your platform. Starting with 0.2.0, ``zagar`` publishes wheels for:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Platform
+     - Python versions
+   * - Linux x86-64 (glibc 2.28 or newer)
+     - 3.10, 3.11, 3.12
+   * - macOS on Apple Silicon
+     - 3.10, 3.11, 3.12
+   * - Windows x86-64
+     - 3.10, 3.11, 3.12
+
+On those, ``pip install zagar`` fetches a ready-built extension module and
+needs no compiler, no CMake and no Boost.
+
+Everywhere else -- Intel macOS, Linux on ARM, musl-based Linux such as Alpine,
+32-bit Windows, and Python 3.13 or newer -- ``pip`` falls back to the source
+distribution and compiles the extension on your machine. Only that path needs:
+
 - **C++17 compatible compiler** (GCC >= 7, Clang >= 5, or MSVC >= 2017)
 - **CMake** >= 3.15
 - **Boost** (header-only, for multiprecision arithmetic)
 
 Installing Boost
 ~~~~~~~~~~~~~~~~
+
+Needed only for a source build, as described above.
 
 **macOS** (using Homebrew):
 
@@ -47,7 +72,9 @@ Installing Boost
 Optional: OpenMP for Parallelization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For parallel computation support via ``getA12_parallel``, install OpenMP:
+For parallel computation support via ``getA12_parallel`` and
+``getA12_pruning``, both of which accept an ``n_threads`` argument, install
+OpenMP:
 
 **macOS**:
 
@@ -82,9 +109,11 @@ Install ``zagar`` from PyPI with:
 
 .. note::
 
-   If Boost is not installed, you will see an error like::
+   On a platform with a wheel this is all that is required. If no wheel matches
+   your platform and Python version, ``pip`` builds from source instead, and
+   will stop with an error like this when Boost is missing::
 
-      CMake Error at CMakeLists.txt:52 (message):
+      CMake Error at CMakeLists.txt:94 (message):
         Boost not found.  Please install Boost:
 
           macOS:   brew install boost
@@ -104,7 +133,7 @@ Here is a complete example of installing ``zagar`` in a fresh conda environment:
    conda create -n zagar-test python=3.11 -y
    conda activate zagar-test
 
-   # Install Boost (required dependency)
+   # Install Boost (only needed if no wheel matches your platform)
    conda install -c conda-forge boost
 
    # Install zagar from PyPI
@@ -144,7 +173,7 @@ After installation, verify that ``zagar`` works correctly:
 
    # Test basic functionality
    result = zagar.count_binary_matrices([2, 1], [1, 1, 1])
-   print(result)  # {'number': 3, 'nvec': [2, 1], 'mvec': [1, 1, 1]}
+   print(result)  # {'number': 3, 'memo_entries': 2}
 
    # Check if OpenMP is available
    print(f"OpenMP support: {zagar.has_openmp()}")
@@ -152,6 +181,18 @@ After installation, verify that ``zagar`` works correctly:
 
 SageMath Users
 --------------
+
+.. note::
+
+   **The SageMath interface is current as of 0.1.0 only.** The instructions in
+   this section and the examples on the :doc:`sage_ex` page were written and
+   checked against that release. They do not yet cover anything added in
+   0.2.0 -- ``count_A12``, ``count_A12_dp``, ``log2_A12_asymptotic``,
+   ``classify_case``, ``entropy_bits`` or ``densities_from_constraints`` -- and
+   nothing in the test suite verifies them, because doctest cannot execute
+   ``sage:`` prompts. Installing 0.2.0 into Sage works as described below, and
+   every 0.1.0 function behaves as shown, but treat the Sage documentation of
+   the new interfaces as outstanding work.
 
 `SageMath <https://doc.sagemath.org/html/en/index.html>`_ includes its own Python environment, so ``zagar`` must be installed
 into Sage's Python rather than your system Python.
@@ -164,7 +205,7 @@ Then install ``zagar`` using Sage's built-in pip:
 
 .. code-block:: bash
 
-   # Install from PyPI (once published)
+   # Install from PyPI
    sage -pip install zagar
 
    # Or install from source
@@ -199,7 +240,7 @@ Then in the Sage prompt:
    sage: zagar.__version__
    '0.2.0'
    sage: zagar.count_binary_matrices([2, 1], [1, 1, 1])
-   {'number': 3, 'nvec': [2, 1], 'mvec': [1, 1, 1]}
+   {'number': 3, 'memo_entries': 2}
 
 Using zagar with Sage Types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,6 +275,13 @@ R Users
 -------
 
 Coming soon!
+
+.. note::
+
+   **The R material is current as of 0.1.0 only.** There is no R installation
+   path yet; the examples on the :doc:`r_ex` page were written against that
+   release and are not exercised by the test suite. They do not cover the
+   interfaces added in 0.2.0.
 
 
 Troubleshooting

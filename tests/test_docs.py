@@ -6,6 +6,11 @@ so: ``api.rst`` had four examples with no expected output recorded at all and
 one asserting a value that depends on how the extension was compiled, while
 ``python_ex.rst`` generated its matrices with an unseeded RNG, so every value
 derived from them had been wrong since the page was written.
+
+The page list is derived from the directory rather than written out, so a page
+added later is checked without anyone having to remember this file.  That makes
+the two exclusions below the only way for a page to escape checking, and
+``test_the_exclusions_are_still_real`` keeps them from going stale.
 """
 
 import doctest
@@ -15,11 +20,61 @@ import warnings
 import pytest
 
 DOCS = pathlib.Path(__file__).resolve().parent.parent / "docs" / "source"
-RST_PAGES = ["api.rst", "python_ex.rst", "asymptotics_ex.rst"]
+
+# Pages whose examples are written for another interpreter, and so cannot be
+# executed here at all.
+#
+# ``sage_ex.rst`` is written at the ``sage:`` prompt, which doctest does not
+# recognise -- it looks only for ``>>>`` -- so the page would be collected and
+# silently report zero examples.
+#
+# ``r_ex.rst`` is R.  It is not merely unrecognised: lines 61 and 63 prefix two
+# R calls with ``>>>`` instead of R's own ``>``, so doctest would pick those up
+# and fail trying to run ``print(row_margins)`` as Python.
+#
+# Both pages are written against 0.1.0 and will be revisited when those two
+# interfaces are brought up to date; installation.rst says as much to readers.
+UNCHECKABLE = {"sage_ex.rst", "r_ex.rst"}
+
+# Pages that carry a substantial number of examples, and the floor each must
+# clear.  This guards against the silent failure mode, where the parser stops
+# early and doctest reports success on a file it barely read.  A page absent
+# from this mapping may legitimately have no examples -- index.rst and
+# walkthrough.rst are toctrees, and installation.rst states its outputs in
+# comments and ``sage:`` blocks -- so it is held to failed == 0 only.
+MIN_EXAMPLES = {
+    "api.rst": 60,
+    "python_ex.rst": 40,
+    "asymptotics_ex.rst": 20,
+}
+
+PAGES = (
+    sorted(p.name for p in DOCS.glob("*.rst") if p.name not in UNCHECKABLE)
+    if DOCS.is_dir()
+    else []
+)
 
 
 @pytest.mark.skipif(not DOCS.is_dir(), reason="docs/ not present (sdist install)")
-@pytest.mark.parametrize("page", RST_PAGES)
+def test_the_exclusions_are_still_real():
+    """A renamed or deleted page must not leave a silent hole behind."""
+    present = {p.name for p in DOCS.glob("*.rst")}
+    assert UNCHECKABLE <= present, (
+        f"these pages are excluded from checking but no longer exist: "
+        f"{sorted(UNCHECKABLE - present)}; drop them from UNCHECKABLE"
+    )
+    assert set(MIN_EXAMPLES) <= present, (
+        f"these pages have an example floor but no longer exist: "
+        f"{sorted(set(MIN_EXAMPLES) - present)}"
+    )
+
+
+@pytest.mark.skipif(not DOCS.is_dir(), reason="docs/ not present (sdist install)")
+@pytest.mark.parametrize(
+    "page",
+    PAGES
+    or [pytest.param("(none)", marks=pytest.mark.skip(reason="docs/ not present"))],
+)
 def test_documentation_examples(page):
     path = DOCS / page
     assert path.is_file(), f"{page} is missing"
@@ -37,7 +92,8 @@ def test_documentation_examples(page):
         f"{result.failed} of {result.attempted} examples in {page} failed; "
         "run `python -m doctest docs/source/" + page + "` to see them"
     )
-    assert result.attempted > 20, (
-        f"only {result.attempted} examples found in {page}; the parser may "
-        "have stopped early"
+    floor = MIN_EXAMPLES.get(page, 0)
+    assert result.attempted >= floor, (
+        f"only {result.attempted} examples found in {page}, expected at least "
+        f"{floor}; the parser may have stopped early"
     )
