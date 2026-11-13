@@ -9,3 +9,9 @@ __pycache__/
 *.egg-info/
 /asymptotics_spec.md
 /.venv
+
+# Generated documentation.  docs.yml rebuilds and deploys the site from
+# source on every push to main, so the built copy is never read from git;
+# tracking it only produced spurious diffs after every local `make html`.
+docs/build/
+docs/_build/
