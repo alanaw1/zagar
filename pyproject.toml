@@ -10,7 +10,7 @@ name = "zagar"
 version = "0.2.0"
 description = "Efficient algorithms for exact and approximate enumeration of admixed arrays"
 readme = "README_PyPI.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "Alan J. Aw", email = "nalawanij@gmail.com"},
@@ -23,7 +23,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

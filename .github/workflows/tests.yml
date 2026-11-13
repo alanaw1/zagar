@@ -19,13 +19,19 @@ jobs:
           # The oldest and newest interpreters the wheels claim to support,
           # plus one in between, on Linux; one macOS run to cover the
           # Homebrew/libomp path that differs from Linux.
+          #
+          # 3.10 is the floor rather than 3.9 because ubuntu-latest is now
+          # Ubuntu 26.04, for which actions/python-versions publishes 3.10
+          # upwards only -- a 3.9 row here fails to install, not to build.
+          # macos-latest rather than macos-14: that label was refused with
+          # "configuration 'macos-14-arm64-us-default' is not supported".
           - os: ubuntu-latest
-            python-version: '3.9'
+            python-version: '3.10'
           - os: ubuntu-latest
             python-version: '3.11'
           - os: ubuntu-latest
             python-version: '3.12'
-          - os: macos-14
+          - os: macos-latest
             python-version: '3.12'
 
     steps:
