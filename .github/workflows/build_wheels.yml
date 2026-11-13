@@ -11,15 +11,28 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      # Without this, the first platform to fail cancels the other three and
-      # the run reports one problem instead of all of them.  A dispatch run on
-      # main did exactly that: Linux failed and macOS/Windows never reported.
+      # Without this, the first platform to fail cancels the others and the run
+      # reports one problem instead of all of them.  A dispatch run on main did
+      # exactly that: Linux failed and macOS/Windows never reported.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-latest, windows-latest]
-        # macos-13 is Intel, macos-latest is Apple Silicon.  macos-14 was
-        # refused outright ("configuration 'macos-14-arm64-us-default' is
-        # not supported"), so the label must track the current image.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS is Apple Silicon only.  The Intel leg was macos-13, whose image
+        # GitHub retired on 2025-12-04; the label now maps to no runner at all,
+        # so instead of failing, the job queues forever -- it went unclaimed
+        # across four dispatch runs.  That blocks the release rather than just
+        # losing a wheel, because publish needs build_wheels, so a leg that
+        # never starts means the tag push never publishes.
+        #
+        # macos-14 was refused outright ("configuration
+        # 'macos-14-arm64-us-default' is not supported"), so the remaining
+        # label has to track the current image.
+        #
+        # GitHub's Intel replacement label is macos-15-intel, supported until
+        # the macOS 15 image retires in autumn 2027, should an Intel wheel be
+        # wanted later.  0.1.0 shipped only macosx_13_0_arm64, so dropping the
+        # leg takes nothing away; an Intel Mac builds from the sdist, which the
+        # system-prefix Boost fallback in CMakeLists now permits.
 
     steps:
       - uses: actions/checkout@v4
