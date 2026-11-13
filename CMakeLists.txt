@@ -19,8 +19,31 @@ find_package(pybind11 CONFIG REQUIRED)
 # Check common locations on macOS
 set(Boost_NO_WARN_NEW_VERSIONS ON)
 
-# Try standard find first
-find_package(Boost QUIET)
+# An explicitly supplied include directory wins over every search below, and
+# is the only channel that works on Windows: chocolatey's prebuilt Boost ships
+# no BoostConfig.cmake, and CMP0167 NEW above disables the FindBoost module, so
+# find_package runs in config mode and has nothing to find there.
+#
+# The environment variable has to be read out by hand.  find_package does NOT
+# consult a variable of this name in the environment, which is why setting
+# Boost_INCLUDE_DIRS through CIBW_ENVIRONMENT_WINDOWS had no effect whatsoever
+# and the Windows wheel build failed at configure time with "Boost not found".
+if(NOT Boost_INCLUDE_DIRS AND DEFINED ENV{Boost_INCLUDE_DIRS})
+    set(Boost_INCLUDE_DIRS "$ENV{Boost_INCLUDE_DIRS}")
+endif()
+
+# Probe for the one header the extension actually needs rather than for the
+# directory, so a path that exists but holds no usable Boost is rejected here
+# instead of failing later in the compiler.
+if(Boost_INCLUDE_DIRS AND EXISTS "${Boost_INCLUDE_DIRS}/boost/multiprecision/cpp_int.hpp")
+    set(Boost_FOUND TRUE)
+    message(STATUS "Using the Boost headers supplied at ${Boost_INCLUDE_DIRS}")
+endif()
+
+# Otherwise try a standard find
+if(NOT Boost_FOUND)
+    find_package(Boost QUIET)
+endif()
 
 # If not found, check Homebrew locations
 if(NOT Boost_FOUND)

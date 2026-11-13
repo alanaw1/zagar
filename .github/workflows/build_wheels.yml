@@ -24,9 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Boost (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libboost-dev
+      # No host-level Boost step for Linux: the Linux wheels are built inside a
+      # manylinux container, which never sees anything apt installs on the
+      # runner.  Boost goes in through CIBW_BEFORE_ALL_LINUX below instead.
 
       - name: Install Boost (macOS)
         if: runner.os == 'macOS'
@@ -34,9 +34,23 @@ jobs:
 
       - name: Install Boost (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          choco install boost-msvc-14.3 -y
-          echo "Boost_INCLUDE_DIRS=C:\local\boost_1_82_0" >> $env:GITHUB_ENV
+          choco install boost-msvc-14.3 -y --no-progress
+          # The version is NOT pinned by the package name, so the install
+          # directory moves whenever chocolatey publishes a new Boost.  A
+          # hardcoded C:\local\boost_1_82_0 here is what made the Windows
+          # wheel build fail; discover the directory instead.
+          $root = Get-ChildItem C:\local -Directory -Filter 'boost_*' -ErrorAction SilentlyContinue |
+                  Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $root) { throw 'chocolatey left no C:\local\boost_* directory' }
+          $hdr = Join-Path $root.FullName 'boost\multiprecision\cpp_int.hpp'
+          if (-not (Test-Path $hdr)) { throw "no multiprecision headers under $($root.FullName)" }
+          # Forward slashes: the value is passed through cibuildwheel's
+          # bash-like environment parser, which would eat the backslashes.
+          $inc = $root.FullName -replace '\\','/'
+          Write-Host "Boost headers: $inc"
+          "BOOST_INCLUDE_DIR=$inc" >> $env:GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21
@@ -47,12 +61,29 @@ jobs:
           CIBW_BUILD: cp310-* cp311-* cp312-*
           # Skip 32-bit builds and musl Linux
           CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
-          # Install Boost in manylinux containers
-          CIBW_BEFORE_ALL_LINUX: yum install -y boost-devel || apt-get update && apt-get install -y libboost-dev
-          # macOS: ensure Boost is found
-          CIBW_ENVIRONMENT_MACOS: Boost_INCLUDE_DIRS=/opt/homebrew/include:/usr/local/include
-          # Windows: set Boost path
-          CIBW_ENVIRONMENT_WINDOWS: Boost_INCLUDE_DIRS=C:\\local\\boost_1_82_0
+          # AlmaLinux 8 rather than cibuildwheel's manylinux2014 default, which
+          # is CentOS 7: end-of-life since June 2024, and its boost-devel is
+          # 1.53 from 2013 compiled by that image's GCC 10.  This image carries
+          # Boost 1.66 and GCC 12.  The cost is a glibc floor of 2.28 (RHEL 8,
+          # Ubuntu 18.10) instead of 2.17, which no system new enough to run
+          # Python 3.10 falls below.  0.1.0 shipped no Linux wheel at all, so
+          # there is nothing here to stay compatible with.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          # Install Boost in the manylinux container.  This was previously
+          #   yum install -y boost-devel || apt-get update && apt-get install -y libboost-dev
+          # which can never succeed: || and && bind left to right with equal
+          # precedence, so the apt-get install ran unconditionally -- and there
+          # is no apt-get on a yum image.  Exit 127 whether or not yum worked.
+          # AlmaLinux provides yum as an alias for dnf, so one command covers
+          # both images.
+          CIBW_BEFORE_ALL_LINUX: yum install -y boost-devel
+          # No CIBW_ENVIRONMENT_MACOS: a Boost_INCLUDE_DIRS environment
+          # variable was never read by find_package, so that setting did
+          # nothing.  macOS resolves Boost through the APPLE branch in
+          # CMakeLists.txt, which checks both Homebrew prefixes.
+          # Windows hands over the path the step above discovered.  CMakeLists
+          # now reads this variable explicitly; find_package does not.
+          CIBW_ENVIRONMENT_WINDOWS: Boost_INCLUDE_DIRS=$BOOST_INCLUDE_DIR
           # Test the built wheel
           CIBW_TEST_COMMAND: python -c "import zagar; print(zagar.__version__); print(zagar.getA1(N=3, P=2, a_vec=[2,2,2]))"
 
