@@ -79,7 +79,7 @@ from .asymptotics import (
 )
 from .exact_dp import count_A12_dp
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "count_binary_matrices",
     "getA12",
@@ -211,8 +211,9 @@ def _approx_result(N, a_vec, phi0_vec, phi1_vec, count):
 
     if "log2_approx" in result:
         warnings.warn(
-            "log2_approx is asymptotic: accurate when N and P are large with "
-            "bounded ratio, and a slight overestimate at small sizes.",
+            "log2_approx is asymptotic: accurate when N and P are large "
+            "with bounded ratio. At small sizes it is off by a few hundredths "
+            "of a bit, in either direction depending on the densities.",
             RuntimeWarning,
             stacklevel=3,
         )

@@ -11,7 +11,7 @@ count_binary_matrices
    Count Binary Matrices with Row Sums :math:`\boldsymbol{p}` and Column Sums :math:`\boldsymbol{q}`.
 
    The underlying algorithm is a minor modification of the original EXACT algorithm implemented
-   in Miller and Harrison (2013) *The Annals of Statistics*. Compared to their original C version,
+   in `Miller and Harrison (2013) <https://doi.org/10.1214/13-AOS1131>`_. Compared to their original C version,
    this version uses modern C++ optimizations (e.g., ``std::unordered_map`` in C++
    versus ``khash`` from ``klib`` for hashing) and performs operations on flexible
    integer types, which may be more efficient when the problem size is not too large
@@ -92,18 +92,18 @@ getA12
       :math:`\boldsymbol{\phi}_1` are equal. Previously it was available only
       at the fully symmetric point. Three things changed:
 
-      - the returned dictionary gains ``case``, the regime of Theorem 3.1 that
-        applies (see :func:`classify_case`), and, away from the symmetric
+      - the returned dictionary gains ``case``, the regime of the asymptotic approximation
+        that applies (see :func:`classify_case`); and, away from the symmetric
         point, ``densities``, the triple
         :math:`(\bar{a}, f_0, f_1)` the formula was evaluated at;
       - a :exc:`RuntimeWarning` is emitted whenever an approximation is
         returned, where earlier versions printed a message to standard output;
       - ``log2_upper_bound`` is still returned, but only at the symmetric
         point, because the bound it implements is a construction specific to
-        that point and does not generalise.
+        that point and does not generalize.
 
-      Margins that are not semi-regular are outside Theorem 3.1, so they
-      receive the exact count alone, with no approximation and no warning.
+      Margins that are not semi-regular are outside the range covered by the approximation
+      formula, so they receive the exact count alone, with no approximation and no warning.
 
    :param N: Positive integer parameter (number of individuals)
    :type N: int
@@ -124,7 +124,7 @@ getA12
 
       Present whenever the margins are semi-regular:
 
-      - ``log2_approx``: :math:`\log_2 |\mathscr{A}_{12}|` from Theorem 3.1
+      - ``log2_approx``: :math:`\log_2 |\mathscr{A}_{12}|` from approximation formula
       - ``case``: which of the four regimes applies, an integer in
         :math:`\{1,2,3,4\}`
 
@@ -146,10 +146,13 @@ getA12
    .. warning::
 
       ``log2_approx`` is asymptotic. It is accurate when :math:`N` and
-      :math:`P` are both large with bounded ratio, and is a slight
-      *overestimate* at small sizes — at :math:`N = P = 4` the error is about
-      :math:`+0.01` to :math:`+0.04` bits, shrinking to :math:`+0.008` bits by
-      :math:`N = P = 11`. A :exc:`RuntimeWarning` says so at each call.
+      :math:`P` are both large with bounded ratio and the three densities are
+      held fixed. At small sizes it is off by a few hundredths of a bit, and
+      the direction depends on the densities rather than on the size: along
+      :math:`f_0 = f_1 = 1/4` with :math:`\bar{a} = 1/2` the error runs about
+      :math:`+0.010` bits, while along :math:`f_0 = f_1 = 1/8` it is
+      :math:`-0.016` bits at :math:`N = P = 4`. A :exc:`RuntimeWarning` says
+      so at each call. See :doc:`asymptotics_ex` for where the sign turns.
 
    **Examples**
 
@@ -171,7 +174,7 @@ getA12
       >>> result = zagar.getA12(N=4, a_vec=[4]*4, phi0_vec=[2]*4, phi1_vec=[2]*4, return_approx=True)
       >>> result['case'], result['densities']
       (1, (0.5, 0.25, 0.25))
-      >>> 'log2_upper_bound' in result  # does not generalise off the symmetric point
+      >>> 'log2_upper_bound' in result  # does not generalize off the symmetric point
       False
 
 
@@ -257,7 +260,7 @@ getA12_pruning
    so only one of the two is enumerated and its contribution is doubled.
 
    Both are speed optimizations. The count is identical to ``getA12`` and
-   ``getA12_parallel``, which the test suite checks on every run.
+   ``getA12_parallel``.
 
    :param N: Positive integer parameter (number of individuals)
    :type N: int
@@ -280,16 +283,7 @@ getA12_pruning
       If return_approx=True: dict with the count and approximation info
    :rtype: int or dict
 
-   .. versionchanged:: 0.2.0
-
-      Fixed a defect that affected single-locus inputs only. With
-      :math:`P = 1` the pruning described above never ran — it is applied from
-      the second locus onwards, and the candidates for the first were built
-      without reference to :math:`\sum_n a_n` — so configurations violating
-      the row-sum total reached the counting recursion and were read past the
-      end of an array. The call returned a wrong count, or crashed, depending
-      on what happened to be in memory. Inputs with :math:`P \geq 2` were
-      never affected.
+   .. versionadded:: 0.2.0
 
    **Examples**
 
@@ -314,16 +308,14 @@ count_A12
    :math:`|\mathscr{A}_{12}|` exactly, and lets you choose which of two
    independent algorithms does the work.
 
-   The two families share no code and arrive at the answer differently. The
-   **column-sum** family (``getA12`` and its variants) enumerates the feasible
+   The two methods share no code and arrive at the answer differently. The
+   **column-sum** method (``getA12`` and its variants) enumerates the feasible
    column-sum vectors :math:`(\boldsymbol{v}_1, \boldsymbol{v}_2)` and, for
    each, counts the binary matrices with those column sums by the
    Miller--Harrison recursion. The **dynamic program** never forms such a
    vector: it folds the loci one at a time, keeping only a histogram of the row
    sums each individual has left to account for, which is what makes it faster
-   by orders of magnitude. Because the two are independent, agreement between
-   them is a genuine check rather than a repetition, and the test suite pins it
-   over hundreds of random instances.
+   by orders of magnitude.
 
    :param N: Positive integer parameter (number of individuals)
    :type N: int
@@ -355,13 +347,13 @@ count_A12
 
    .. note::
 
-      Every method returns the same integer; they differ only in time and
-      memory, and the difference is large. At :math:`N = P = 6` the column-sum
-      enumeration exhausts 16 GB, where the dynamic program needs 0.01 s and
-      24 MB. The column-sum family is kept because
-      :func:`count_binary_matrices` is useful in its own right, because it is
-      the independent cross-check just described, and because :func:`getA1`,
-      :func:`getA2` and :func:`compareA1A2` build on the same machinery.
+      Because the algorithmic methods are independent, agreement between them provides a
+      genuine check. Our unit tests verify their agreement over hundreds of random instances.
+      However, the methods differ considerably in time and memory. At :math:`N = P = 6` the column-sum
+      enumeration exhausts 16 GB, where the dynamic program needs 0.01 s and 24 MB. Regardless, the
+      column-sum methods are kept for three reasons: (1) :func:`count_binary_matrices` is useful in its
+      own right, (2) they are the independent cross-check just described, and (3) :func:`getA1`, :func:`getA2`
+      and :func:`compareA1A2` build on the same column-sum machinery.
 
    .. versionadded:: 0.2.0
 
@@ -449,14 +441,17 @@ count_A12_dp
 
    .. note::
 
-      Both algorithms in this package are exponential; this one simply has a
-      much smaller base. At the hardest parameter point, :math:`\bar{a} = 1/2`
-      and :math:`f_0 = f_1 = 1/4`, :math:`N = P = 8` takes 0.44 s and
-      :math:`N = P = 10` takes 45 s, against 0.014 s at :math:`N = P = 4` and
-      16 GB exhausted at :math:`N = P = 6` for the column-sum enumeration.
-      Time grows roughly tenfold per unit of :math:`N` while memory grows only
-      two- or threefold, so time is the binding constraint and
-      :math:`N = 13` is about the practical ceiling.
+      Code profiling has shown that this approach is more time- and memory-efficient
+      than the earlier column-sum approach (``getA12`` methods). At a deliberately
+      expensive parameter point, :math:`\bar{a} = 1/2` and :math:`f_0 = f_1 = 1/4`,
+      :math:`N = P = 8` takes 0.44 s and :math:`N = P = 10` takes 45 s, against
+      0.014 s at :math:`N = P = 4` and 16 GB exhausted at :math:`N = P = 6` for the
+      column-sum enumeration. Across those same runs, time grew by roughly a factor of
+      ten per unit of :math:`N` while memory grew two- or threefold.
+
+      Thus time is the binding constraint, and extrapolating that rate puts the practical
+      ceiling near :math:`N = 13`. That being said, the rate is a measurement of the
+      present implementation at this one parameter point.
 
    .. versionadded:: 0.2.0
 
@@ -617,7 +612,7 @@ log2_A12_asymptotic
 
    Asymptotic Value of :math:`\log_2 |\mathscr{A}_{12}|` for Semi-Regular Margins
 
-   Evaluates Theorem 3.1, which gives :math:`\log_2 |\mathscr{A}_{12}|` as an
+   Evaluates the asymptotic formula, which gives :math:`\log_2 |\mathscr{A}_{12}|` as an
    expansion in :math:`N` and :math:`P` when the constraints are
    *semi-regular* — every individual has the same global ancestry, and every
    locus the same pair of ancestry-specific allele frequencies. The margins are
@@ -681,10 +676,18 @@ log2_A12_asymptotic
    .. warning::
 
       This is an asymptotic value, accurate when :math:`N` and :math:`P` are
-      both large with bounded ratio. At finite size it is a slight
-      *overestimate*: compared against exact enumeration it is high by about
-      :math:`+0.01` to :math:`+0.04` bits at :math:`N = P = 4`, falling to
-      :math:`+0.008` bits by :math:`N = P = 11`.
+      both large with bounded ratio **and the three densities are held
+      fixed**. At finite size it is off by a few hundredths of a bit in either
+      direction. Against exact enumeration it is high by :math:`+0.011` bits
+      at :math:`N = P = 4` along :math:`\bar{a} = 1/2`,
+      :math:`f_0 = f_1 = 1/4`, but low by :math:`-0.016` bits at the same size
+      along :math:`f_0 = f_1 = 1/8`. The sign is not guaranteed: over every
+      margin small enough to check exactly, 252 of the 680 at :math:`N = P = 8`
+      are underestimates. :doc:`asymptotics_ex` tabulates this.
+
+      Letting the densities shrink with :math:`N` violates the assumptions of
+      the asymptotic approximation, and the error may grow rather than shrink — see
+      the same page.
 
    .. versionadded:: 0.2.0
 
@@ -705,7 +708,7 @@ classify_case
 
 .. function:: classify_case(abar, f0, f1)
 
-   Which Regime of Theorem 3.1 Applies
+   Which Regime of the Asymptotic Approximation Applies
 
    Each of the :math:`2NP` haplotype-locus cells of an admixed array has a
    type :math:`(A, X) \in \{0,1\}^2`, and the three densities fix how common
@@ -796,9 +799,9 @@ entropy_bits
    Shannon Entropy in Bits
 
    Computes :math:`H(\boldsymbol{p}) = -\sum_i p_i \log_2 p_i`, with the usual
-   convention :math:`0 \log_2 0 = 0`. This is the leading term of Theorem 3.1,
-   where the arguments are the densities of the cell types the constraints
-   leave available — four of them in Case 1, three in Cases 2 and 3, two in
+   convention :math:`0 \log_2 0 = 0`. This is the leading term of the asymptotic
+   approximation, where the arguments are the densities of the cell types that the
+   constraints leave available --- four of them in Case 1, three in Cases 2 and 3, two in
    Case 4.
 
    :param p: The component probabilities, which must be nonnegative and sum
@@ -832,8 +835,9 @@ densities_from_constraints
    Densities :math:`(\bar{a}, f_0, f_1)` from Integer Constraint Vectors
 
    Converts semi-regular constraint vectors into the three densities that
-   Theorem 3.1 is stated in terms of, so that :func:`log2_A12_asymptotic` and
-   :func:`classify_case` can be applied to a concrete problem.
+   the asymptotic approximation formula is stated in terms of, so that
+   :func:`log2_A12_asymptotic` and :func:`classify_case` can be applied
+   to a concrete problem.
 
    The two denominators differ, and it is worth being explicit about why.
    Each individual has :math:`2P` haplotype slots across the loci, so
@@ -874,8 +878,7 @@ densities_from_constraints
       integer. At :math:`N = 11`, for instance, :math:`2N f_0 = 5.5` for
       :math:`f_0 = 1/4`, so a quarter density cannot be expressed at that size
       at all. Building constraint vectors by rounding is a reliable way to
-      compute at a parameter point other than the intended one; round-tripping
-      them back through this function is a cheap way to catch that.
+      compute at a parameter point other than the intended one.
 
    .. versionadded:: 0.2.0
 
@@ -988,4 +991,4 @@ Module Attributes
 
       >>> import zagar
       >>> zagar.__version__
-      '0.1.0'
+      '0.2.0'

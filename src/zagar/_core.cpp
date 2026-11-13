@@ -447,5 +447,5 @@ int
     m.attr("DP_TRANSITIONS_MAX_N") = zagar::DP_TRANSITIONS_MAX_N;
 
     // Version info
-    m.attr("__version__") = "0.1.0";
+    m.attr("__version__") = "0.2.0";
 }

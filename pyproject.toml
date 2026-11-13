@@ -7,10 +7,10 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "zagar"
-version = "0.1.0"
+version = "0.2.0"
 description = "Efficient algorithms for exact and approximate enumeration of admixed arrays"
 readme = "README_PyPI.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "Alan J. Aw", email = "nalawanij@gmail.com"},
@@ -23,7 +23,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -48,7 +47,7 @@ cmake.version = ">=3.15"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["src/zagar"]
 wheel.exclude = ["*.cpp", "*.hpp"]
-sdist.include = ["pyproject.toml", "CMakeLists.txt", "README_PyPI.md", "src/zagar/*.cpp", "src/zagar/*.hpp", "src/zagar/__init__.py", "LICENSE"]
+sdist.include = ["pyproject.toml", "CMakeLists.txt", "README_PyPI.md", "src/zagar/*.cpp", "src/zagar/*.hpp", "src/zagar/*.py", "LICENSE"]
 sdist.exclude = ["docs", "build",".git", "README.md", "GitHub_images", ".gitattributes", ".gitignore", ".pytest_cache", "*.egg-info", "__pycache__", ".DS_Store", ".claude", "count_binary.cpp", "tests/__pycache__"]
 
 [tool.pytest.ini_options]

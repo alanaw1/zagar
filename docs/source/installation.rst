@@ -197,7 +197,7 @@ Then in the Sage prompt:
 
    sage: import zagar
    sage: zagar.__version__
-   '0.1.0'
+   '0.2.0'
    sage: zagar.count_binary_matrices([2, 1], [1, 1, 1])
    {'number': 3, 'nvec': [2, 1], 'mvec': [1, 1, 1]}
 
