@@ -17,6 +17,17 @@ Installation instructions, tutorials and API documentation can be found here:
 	https://alanaw1.github.io/zagar
 	
 
+## Associated Works
+
+The following manuscripts use **zagar**.
+
+1. [Aw2026a] Aw, A.J. "[Asymptotic enumeration of admixed arrays and a different independence heuristic](https://arxiv.org/abs/2604.08857)." _arXiv preprint arXiv:2604.08857_ (2026) 
+2. [Aw2026b] Aw, A.J. "Semi-regular admixed arrays: asymptotic enumeration and when information is additive." (coming soon)
+
+## Reproducibility
+
+The subdirectory "reproducibility" contains code for reproducing every numeric and result-dependent figure reported in [Aw2026b].
+
 ## License
 
 Our software carries a [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) license. 
